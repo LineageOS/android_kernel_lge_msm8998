@@ -43,7 +43,6 @@
 #define debug(...)
 #endif
 
-
 #define DEFAULT_FDT_VERSION	17
 
 /*
@@ -117,7 +116,7 @@ struct data data_insert_at_marker(struct data d, struct marker *m,
 struct data data_merge(struct data d1, struct data d2);
 struct data data_append_cell(struct data d, cell_t word);
 struct data data_append_integer(struct data d, uint64_t word, int bits);
-struct data data_append_re(struct data d, const struct fdt_reserve_entry *re);
+struct data data_append_re(struct data d, uint64_t address, uint64_t size);
 struct data data_append_addr(struct data d, uint64_t addr);
 struct data data_append_byte(struct data d, uint8_t byte);
 struct data data_append_zeroes(struct data d, int len);
@@ -137,6 +136,10 @@ struct label {
 	bool deleted;
 	char *label;
 	struct label *next;
+};
+
+struct bus_type {
+	const char *name;
 };
 
 struct property {
@@ -165,6 +168,7 @@ struct node {
 	int addr_cells, size_cells;
 
 	struct label *labels;
+	const struct bus_type *bus;
 };
 
 enum deltype {
@@ -247,7 +251,7 @@ uint32_t guess_boot_cpuid(struct node *tree);
 /* Boot info (tree plus memreserve information */
 
 struct reserve_info {
-	struct fdt_reserve_entry re;
+	uint64_t address, size;
 
 	struct reserve_info *next;
 
@@ -267,6 +271,7 @@ struct dt_info {
 	uint32_t boot_cpuid_phys;
 	struct node *dt;		/* the device tree */
 	struct del_list *deleted_list;
+	const char *outname;		/* filename being written to, "-" for stdout */
 };
 
 /* DTS version flags definitions */
