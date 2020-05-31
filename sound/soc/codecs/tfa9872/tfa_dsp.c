@@ -4035,7 +4035,7 @@ enum tfa98xx_error tfa_run_wait_calibration(tfa98xx_handle_t handle, int *calibr
 	return err;
 }
 
-enum tfa_error tfa_start(int next_profile, int *vstep)
+enum tfa98xx_error tfa_start(int next_profile, int *vstep)
 {
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	int dev, devcount = tfa98xx_cnt_max_device();
@@ -4056,7 +4056,7 @@ enum tfa_error tfa_start(int next_profile, int *vstep)
 
 	if ( devcount < 1 ) {
 		pr_err("No or wrong container file loaded\n");
-		return	tfa_error_bad_param;
+		return	TFA98XX_ERROR_BAD_PARAMETER;
 	}
 
 	for( dev=0; dev < devcount; dev++) {
@@ -4209,14 +4209,14 @@ error_exit:
 	return err;
 }
 
-enum tfa_error tfa_stop(void)
+enum tfa98xx_error tfa_stop(void)
 {
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	int dev, devcount = tfa98xx_cnt_max_device();
 
 	if ( devcount == 0 ) {
 		pr_err("No or wrong container file loaded\n");
-		return	tfa_error_bad_param;
+		return	TFA98XX_ERROR_BAD_PARAMETER;
 	}
 
 	for( dev=0; dev < devcount; dev++) {
@@ -4287,7 +4287,7 @@ int tfa98xx_reset(tfa98xx_handle_t handle)
 	return err;
 }
 
-enum tfa_error tfa_reset(void)
+enum tfa98xx_error tfa_reset(void)
 {
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	int dev, devcount = tfa98xx_cnt_max_device();
@@ -4654,7 +4654,7 @@ enum tfa98xx_error tfa98xx_set_boost_trip_level(void)
 static int tfa_dsp_handle_event(tfa98xx_handle_t handle, enum tfadsp_event_en tfadsp_event)
 {
 	int retval = handles_local[handle].rev; /* return revid by default */
-	enum tfa_error err;
+	enum tfa98xx_error err;
 
 	switch( tfadsp_event )
 	{
@@ -4669,7 +4669,7 @@ static int tfa_dsp_handle_event(tfa98xx_handle_t handle, enum tfadsp_event_en tf
 		pr_info("TFADSP_CMD_READY: set cold\n");
 		handles_local[handle].ext_dsp = 1;
 		err = tfa_start(handles_local[handle].profile, handles_local[handle].vstep);
-		if ( err == tfa_error_ok) {
+		if ( err == TFA98XX_ERROR_OK) {
 			handles_local[handle].ext_dsp = 2; /* set warm */
 			handles_local[handle].is_cold = 0;
 			retval = 0;
