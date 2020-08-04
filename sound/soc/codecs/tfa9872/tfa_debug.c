@@ -67,7 +67,7 @@ const char* tfa98xx_get_error_string(enum tfa98xx_error error)
 	p_err_str = "WaitForState_TimedOut";
 	break;
   default:
-    snprintf(latest_errorstr, 100, "Unspecified error (%d)", (int)error);
+    snprintf(latest_errorstr, 64, "Unspecified error (%d)", (int)error);
     p_err_str = latest_errorstr;
   }
   return p_err_str;
