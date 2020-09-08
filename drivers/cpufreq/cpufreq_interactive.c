@@ -2260,7 +2260,7 @@ static struct freq_attr boostpulse_gov_pol =
 	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_pol);
 
 #ifdef CONFIG_LGE_PM_CANCUN
-static struct global_attr is_cancun_activated_gov_sys =
+static struct kobj_attribute is_cancun_activated_gov_sys =
 	__ATTR(is_cancun_activated, 0444, show_is_cancun_activated_gov_sys, NULL);
 
 static struct freq_attr is_cancun_activated_gov_pol =
