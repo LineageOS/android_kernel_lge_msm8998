@@ -773,12 +773,12 @@ static void __exit texit(void)
  =======================================================================*/
 #define show_one(file_name, object)                                     \
 	static ssize_t show_##file_name                                 \
-	(struct kobject *kobj, struct attribute *attr, char *buf)       \
+	(struct kobject *kobj, struct kobj_attribute *attr, char *buf)       \
 	{                                                               \
 		return sprintf(buf, "%u\n", platform_data.notify_info.object);               \
 	}
 
-static ssize_t store_enable(struct kobject *a, struct attribute *b,
+static ssize_t store_enable(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
@@ -790,7 +790,7 @@ static ssize_t store_enable(struct kobject *a, struct attribute *b,
 	sysfs_set_noti_data(SYSFS_NOTIFY_ENABLE);
 	return count;
 }
-static ssize_t store_enforce(struct kobject *a, struct attribute *b,
+static ssize_t store_enforce(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
@@ -803,7 +803,7 @@ static ssize_t store_enforce(struct kobject *a, struct attribute *b,
 	sysfs_set_noti_data(SYSFS_NOTIFY_ENFORCE);
 	return count;
 }
-static ssize_t store_aevents(struct kobject *a, struct attribute *b,
+static ssize_t store_aevents(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
@@ -815,7 +815,7 @@ static ssize_t store_aevents(struct kobject *a, struct attribute *b,
 
 	return count;
 }
-static ssize_t store_bevents(struct kobject *a, struct attribute *b,
+static ssize_t store_bevents(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
@@ -829,7 +829,7 @@ static ssize_t store_bevents(struct kobject *a, struct attribute *b,
 }
 
 
-static ssize_t store_cur_policy(struct kobject *a, struct attribute *b,
+static ssize_t store_cur_policy(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
@@ -842,7 +842,7 @@ static ssize_t store_cur_policy(struct kobject *a, struct attribute *b,
 	sysfs_set_noti_data(SYSFS_NOTIFY_CUR_POLICY);
 	return count;
 }
-static ssize_t store_debug(struct kobject *a, struct attribute *b,
+static ssize_t store_debug(struct kobject *a, struct kobj_attribute *b,
 				const char *buf, size_t count)
 {
 	unsigned int input;
