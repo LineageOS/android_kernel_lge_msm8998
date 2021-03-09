@@ -658,10 +658,10 @@ void wlan_cfg80211_tdls_rx_callback(void *user_data,
 
 	if (rx_frame->rx_chan <= TDLS_MAX_NO_OF_2_4_CHANNELS)
 		freq = ieee80211_channel_to_frequency(
-			rx_frame->rx_chan, (enum ieee80211_band)NL80211_BAND_2GHZ);
+			rx_frame->rx_chan, NL80211_BAND_2GHZ);
 	else
 		freq = ieee80211_channel_to_frequency(
-			rx_frame->rx_chan, (enum ieee80211_band)NL80211_BAND_5GHZ);
+			rx_frame->rx_chan, NL80211_BAND_5GHZ);
 
 	cfg80211_notice("Indicate frame over nl80211, vdev id:%d, idx:%d",
 		   rx_frame->vdev_id, wdev->netdev->ifindex);
