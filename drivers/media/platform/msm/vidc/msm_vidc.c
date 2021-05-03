@@ -83,16 +83,29 @@ EXPORT_SYMBOL(msm_vidc_poll);
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {
+	int rc = -EINVAL;
 	struct msm_vidc_inst *inst = instance;
 
 	if (!inst || !cap)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_querycap(inst, cap);
-	else if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_querycap(instance, cap);
-	return -EINVAL;
+	if (inst->session_type == MSM_VIDC_DECODER){
+		rc = msm_vdec_querycap(instance, cap);
+	}
+	else if (inst->session_type == MSM_VIDC_ENCODER){
+		rc = msm_venc_querycap(instance, cap);
+	}
+	else{
+		goto exit;
+	}
+
+	if (!rc) {
+		cap->device_caps = cap->capabilities;
+		cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
+	}
+
+exit:
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_querycap);
 
@@ -520,6 +533,7 @@ static inline void save_v4l2_buffer(struct v4l2_buffer *b,
 						struct buffer_info *binfo)
 {
 	int i = 0;
+
 	for (i = 0; i < b->length; ++i) {
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
