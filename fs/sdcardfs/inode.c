@@ -79,8 +79,8 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(dir->i_sb),
             SDCARDFS_I(dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -145,8 +145,8 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(dir->i_sb),
             SDCARDFS_I(dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -194,8 +194,8 @@ static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
 
     saved_cred = override_fsids(SDCARDFS_SB(dir->i_sb),
             SDCARDFS_I(dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -261,8 +261,8 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(dir->i_sb),
             SDCARDFS_I(dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	/* check disk space */
 	parent_dentry = dget_parent(dentry);
@@ -393,8 +393,8 @@ static int sdcardfs_rmdir(struct inode *dir, struct dentry *dentry)
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(dir->i_sb),
             SDCARDFS_I(dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	/* sdcardfs_get_real_lower(): in case of remove an user's obb dentry
 	 * the dentry on the original path should be deleted.
@@ -450,8 +450,8 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(old_dir->i_sb),
             SDCARDFS_I(new_dir)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	sdcardfs_get_real_lower(old_dentry, &lower_old_path);
 	sdcardfs_get_lower_path(new_dentry, &lower_new_path);
@@ -694,8 +694,8 @@ static int sdcardfs_setattr(struct vfsmount *mnt, struct dentry *dentry, struct 
 	/* save current_cred and override it */
     saved_cred = override_fsids(SDCARDFS_SB(dentry->d_sb),
             SDCARDFS_I(inode)->data);
-    if (!saved_cred)
-        return -ENOMEM;
+		if (!saved_cred)
+			return -ENOMEM;
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
