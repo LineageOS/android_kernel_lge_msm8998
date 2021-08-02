@@ -21,6 +21,7 @@
 #include "sdcardfs.h"
 #include <linux/fs_struct.h>
 #include <linux/ratelimit.h>
+#include <linux/sched.h>
 
 const struct cred *override_fsids(struct sdcardfs_sb_info *sbi,
 		struct sdcardfs_inode_data *data)
@@ -356,7 +357,8 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		touch_err = touch(".nomedia", 0664);
 		if (touch_err) {
 			pr_err("sdcardfs: failed to create .nomedia in %s: %d\n",
-							lower_path.dentry->d_name.name, touch_err);
+						lower_path.dentry->d_name.name,
+						touch_err);
 			goto out;
 		}
 	}

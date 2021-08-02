@@ -189,7 +189,7 @@ struct fastrpc_ioctl_mmap {
 
 
 struct fastrpc_ioctl_mmap_64 {
-	int fd;				/* ion fd */
+	int fd;					/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
 	uint64_t vaddrin;		/* optional virtual address */
 	size_t size;			/* size */
