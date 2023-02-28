@@ -2426,6 +2426,12 @@ int hdd_wlan_start_modules(hdd_context_t *hdd_ctx, hdd_adapter_t *adapter,
 		goto release_lock;
 	}
 	hdd_ctx->start_modules_in_progress = false;
+#ifdef FEATURE_SUPPORT_LGE
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-07-12, moon-wifi@lge.com*/
+	wlan_hdd_set_scan_suppress(0);
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-07-12, moon-wifi@lge.com*/
+#endif
+
 	mutex_unlock(&hdd_ctx->iface_change_lock);
 	EXIT();
 	return 0;
@@ -5226,6 +5232,8 @@ QDF_STATUS hdd_reset_all_adapters(hdd_context_t *hdd_ctx)
 
 			wlansap_cleanup_cac_timer(
 				WLAN_HDD_GET_SAP_CTX_PTR(adapter));
+
+			qdf_atomic_set(&adapter->sessionCtx.ap.acs_in_progress, 0);
 		}
 
 		status = hdd_get_next_adapter(hdd_ctx, adapterNode, &pNext);
@@ -8802,9 +8810,12 @@ static void hdd_iface_change_callback(void *priv)
 
 	ENTER();
 	hdd_debug("Interface change timer expired close the modules!");
+	// 2018.01.16 Add synchronization for hdd_iface_change_callback and wlan_hdd_pld_remove, QCT Case 03298903
+	mutex_lock(&hdd_init_deinit_lock);
 	ret = hdd_wlan_stop_modules(hdd_ctx, false);
 	if (ret)
 		hdd_err("Failed to stop modules");
+	mutex_unlock(&hdd_init_deinit_lock);
 	EXIT();
 }
 
