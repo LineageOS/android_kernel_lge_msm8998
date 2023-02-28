@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "104ffe9f_70ded2e1",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 31496
+      },
+      "writtenOn": "2023-02-28T04:41:17Z",
+      "side": 1,
+      "message": "Complete tree for this topic: https://github.com/lifehackerhansol-android/android_kernel_lge_msm8998/commits/qca-revert-full",
+      "revId": "994bd9f3de3e0afd1c6776fea431f67294d5472e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
