@@ -44,6 +44,13 @@
 #define SIOCIOCTLTX99 (SIOCDEVPRIVATE+13)
 #endif
 
+#ifdef FEATURE_SUPPORT_LGE
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#include <asm/types.h>
+#include <cds_mq.h>
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#endif
+
 /*
  * Size of Driver command strings from upper layer
  */
@@ -2312,9 +2319,10 @@ static int hdd_set_dwell_time(hdd_adapter_t *adapter, uint8_t *command)
 	sme_get_config_param(hHal, sme_config);
 
 	if (strncmp(command, "SETDWELLTIME ACTIVE MAX", 23) == 0) {
-		if (drv_cmd_validate(command, 23))
-			return -EINVAL;
-
+		if (drv_cmd_validate(command, 23)) {
+			retval = -EINVAL;
+			goto free;
+		}
 		value = value + 24;
 		temp = kstrtou32(value, 10, &val);
 		if (temp != 0 || val < CFG_ACTIVE_MAX_CHANNEL_TIME_MIN ||
@@ -2327,8 +2335,10 @@ static int hdd_set_dwell_time(hdd_adapter_t *adapter, uint8_t *command)
 		sme_config->csrConfig.nActiveMaxChnTime = val;
 		sme_update_config(hHal, sme_config);
 	} else if (strncmp(command, "SETDWELLTIME ACTIVE MIN", 23) == 0) {
-		if (drv_cmd_validate(command, 23))
-			return -EINVAL;
+		if (drv_cmd_validate(command, 23)) {
+			retval = -EINVAL;
+			goto free;
+		}
 
 		value = value + 24;
 		temp = kstrtou32(value, 10, &val);
@@ -2342,8 +2352,10 @@ static int hdd_set_dwell_time(hdd_adapter_t *adapter, uint8_t *command)
 		sme_config->csrConfig.nActiveMinChnTime = val;
 		sme_update_config(hHal, sme_config);
 	} else if (strncmp(command, "SETDWELLTIME PASSIVE MAX", 24) == 0) {
-		if (drv_cmd_validate(command, 24))
-			return -EINVAL;
+		if (drv_cmd_validate(command, 24)) {
+			retval = -EINVAL;
+			goto free;
+		}
 
 		value = value + 25;
 		temp = kstrtou32(value, 10, &val);
@@ -2357,8 +2369,10 @@ static int hdd_set_dwell_time(hdd_adapter_t *adapter, uint8_t *command)
 		sme_config->csrConfig.nPassiveMaxChnTime = val;
 		sme_update_config(hHal, sme_config);
 	} else if (strncmp(command, "SETDWELLTIME PASSIVE MIN", 24) == 0) {
-		if (drv_cmd_validate(command, 24))
-			return -EINVAL;
+		if (drv_cmd_validate(command, 24)) {
+			retval = -EINVAL;
+			goto free;
+		}
 
 		value = value + 25;
 		temp = kstrtou32(value, 10, &val);
@@ -2372,8 +2386,10 @@ static int hdd_set_dwell_time(hdd_adapter_t *adapter, uint8_t *command)
 		sme_config->csrConfig.nPassiveMinChnTime = val;
 		sme_update_config(hHal, sme_config);
 	} else if (strncmp(command, "SETDWELLTIME", 12) == 0) {
-		if (drv_cmd_validate(command, 12))
-			return -EINVAL;
+		if (drv_cmd_validate(command, 12)) {
+			retval = -EINVAL;
+			goto free;
+		}
 
 		value = value + 13;
 		temp = kstrtou32(value, 10, &val);
@@ -3130,7 +3146,9 @@ static int drv_cmd_country(hdd_adapter_t *adapter,
 	int ret = 0;
 	QDF_STATUS status;
 	char *country_code;
+#ifndef FEATURE_SUPPORT_LGE
 	int32_t cc_from_db;
+#endif
 
 	country_code = strnchr(command, strlen(command), ' ');
 	/* no argument after the command*/
@@ -3152,6 +3170,7 @@ static int drv_cmd_country(hdd_adapter_t *adapter,
 	if (*country_code == '\0' || *(country_code + 1) == '\0')
 		return -EINVAL;
 
+#ifndef FEATURE_SUPPORT_LGE
 	if (!((country_code[0] == 'X' && country_code[1] == 'X') ||
 	    (country_code[0] == '0' && country_code[1] == '0'))) {
 		cc_from_db = cds_get_country_from_alpha2(country_code);
@@ -3161,6 +3180,7 @@ static int drv_cmd_country(hdd_adapter_t *adapter,
 			return -EINVAL;
 		}
 	}
+#endif
 
 	qdf_event_reset(&adapter->change_country_code);
 
@@ -6870,6 +6890,78 @@ static int drv_cmd_dummy(hdd_adapter_t *adapter,
 	return 0;
 }
 
+#ifdef FEATURE_SUPPORT_LGE
+extern void wlan_hdd_set_scan_suppress(unsigned long on_off);
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+static int drv_cmd_set_scansuppress(hdd_adapter_t *adapter,
+			 hdd_context_t *hdd_ctx,
+			 uint8_t *command,
+			 uint8_t command_len,
+			 hdd_priv_data_t *priv_data)
+{
+	int ret;
+	unsigned long on_off = 0;
+	size_t len = 0;
+	hdd_err("[LGE_COMMAND]:%s: \"%s\"", adapter->dev->name, command);
+
+	len = strlen(command);
+	if (len != 18) {
+		hdd_err("Incorrect Strvalue");
+		return -EINVAL;
+	}
+
+	ret = kstrtoul(command + 17, 10, &on_off);
+	if (ret != 0) {
+		hdd_err("Error in conversion from int to str: %d", ret);
+		return -EINVAL;
+	}
+
+	if (on_off < 0 || on_off > 1) {
+		hdd_err("Incorrect Testvalue!!(%ld)", on_off);
+		return -EINVAL;
+	}
+
+	wlan_hdd_set_scan_suppress(on_off);
+	return 0;
+}
+static int drv_cmd_get_dbsmode(hdd_adapter_t *adapter,
+			 hdd_context_t *hdd_ctx,
+			 uint8_t *command,
+			 uint8_t command_len,
+			 hdd_priv_data_t *priv_data)
+{
+	char extra[32] = {'\0',};
+	int ret = -1;
+	uint8_t len = 0;
+	int ant_no = 0;
+	int rsdb_mode = 0;
+	hdd_adapter_t *pAdapter = adapter;
+	tSmeConfigParams smeConfig ;
+	tHalHandle hHal;
+	hHal= WLAN_HDD_GET_HAL_CTX(pAdapter);
+	hdd_ctx = WLAN_HDD_GET_CTX(pAdapter);
+	ret = wlan_hdd_validate_context(hdd_ctx);
+
+	if (0 != ret) {
+	    hdd_err("[LGE_COMMAND]%s>Error in getting context", __func__);
+		return -EINVAL;
+	}
+	sme_get_config_param(hHal, &smeConfig);
+	ant_no = (smeConfig.csrConfig.enable2x2 == 0) ? 1 : 2;
+	if ((ant_no == 2) && wma_is_current_hwmode_dbs()) {
+	    hdd_err("[LGE_COMMAND]wma_is_current_hwmode_dbs is true");
+		rsdb_mode = 1;
+	}
+	len = scnprintf(extra, sizeof(extra), "%s %d", command, rsdb_mode);
+	if (copy_to_user(priv_data->buf, &extra, len)) {
+		hdd_err("Failed to copy data to user buffer");
+		return -EFAULT;
+	}
+    return 0;
+}
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#endif
+
 /*
  * handler for any unsupported wlan hdd driver command
  */
@@ -7551,6 +7643,12 @@ static const struct hdd_drv_cmd hdd_drv_cmds[] = {
 	{"RXFILTER-STOP",             drv_cmd_dummy, false},
 	{"BTCOEXSCAN-START",          drv_cmd_dummy, false},
 	{"BTCOEXSCAN-STOP",           drv_cmd_dummy, false},
+#ifdef FEATURE_SUPPORT_LGE
+/*LGE_CHNAGE_S, DRIVER scan_suppress command,DRIVER GET_RSDBMODE 2019-01-17, protocol-wifi@lge.com*/
+	{"SET_SCANSUPPRESS",          drv_cmd_set_scansuppress, true}, //true or false??
+	{"GET_RSDBMODE",              drv_cmd_get_dbsmode, false}, //fasle
+/*LGE_CHNAGE_E, DRIVER scan_suppress command,DRIVER GET_RSDBMODE 2019-01-17, protocol-wifi@lge.com*/
+#endif
 };
 
 /**
