@@ -687,7 +687,7 @@ void mdss_fb_update_backlight_ex(struct msm_fb_data_type *mfd)
 				pdata->set_backlight(pdata, temp);
 				mfd->allow_bl_update_ex = true;
 			} else {
-				pr_info("ignore unset_bl_level_ex value\n");
+				pr_debug("ignore unset_bl_level_ex value\n");
 			}
 		}
 	}
