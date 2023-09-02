@@ -246,23 +246,23 @@ struct es9218_data {
 
 
 enum sabre_filter_shape {
-    SABRE_FILTER_FASTROLLOFF,
-    SABRE_FILTER_SLOWROLLOFF,
-    SABRE_FILTER_MINIMUM,
-    SABRE_FILTER_MINSLOW,
-    SABRE_FILTER_APODFAST1,
+    SABRE_FILTER_FASTROLLOFF, // 0
+    SABRE_FILTER_SLOWROLLOFF, // 1
+    SABRE_FILTER_MINIMUM,  // 2
+    SABRE_FILTER_MINSLOW,  // 3
+    SABRE_FILTER_APODFAST1,// 4
     SABRE_FILTER_HYBRIDFAST = 6,
-    SABRE_FILTER_BRICKWALL
+    SABRE_FILTER_BRICKWALL // 7
 };
 
-enum sablre_filter_symmetry{
-    SABRE_FILTER_SYMMETRY_SINE,
-    SABRE_FILTER_SYMMETRY_COSINE
+enum sabre_filter_symmetry {
+    SABRE_FILTER_SYMMETRY_SINE, // 0
+    SABRE_FILTER_SYMMETRY_COSINE // 1
 };
 
 struct sabre_custom_filter {
     enum    sabre_filter_shape      shape;      ///< roll-off shape of filter
-    enum    sablre_filter_symmetry  symmetry;   ///< symmetry type of stage 2 filter coefficients
+    enum    sabre_filter_symmetry  symmetry;   ///< symmetry type of stage 2 filter coefficients
     int     stage1_coeff[128];
     int     stage2_coeff[16];
 };
@@ -318,7 +318,7 @@ struct sabre_custom_filter es9218_sabre_custom_ft[] = {
   {
     SABRE_FILTER_FASTROLLOFF,       // custom filter type
     SABRE_FILTER_SYMMETRY_SINE,     // symmetry type of stage 2 filter
-    { // Stage 1 filter coefficients
+    { // Stage 1 filter coefficients (overriden by stage 2 filters)
         -417,       1473,       3176,       1404,       -3339,      -2060,      4177,       3291,
         -5719,      -4716,      7588,       6691,       -10108,     -9048,      13208,      11986,
         -17155,     -15435,     22004,      19525,      -28016,     -24217,     35328,      29596,
@@ -365,9 +365,9 @@ struct sabre_custom_filter es9218_sabre_custom_ft[] = {
     },
 
     { // Stage 2 filter coefficients
-        0,          0,          0,          0,          0,          0,          99386,      355200,
-        880080,     1746102,    2801046,    3902774,    4736866,    5017414,    0,          0
-    }
+						0,          0,          0,          0,          0,          0,          0,          0,
+			0,          0,          0,          0,          0,          0,          0,          0
+    } //custom filter 4 (customizable by the panel)
   } //custom filter 1
 };
 
