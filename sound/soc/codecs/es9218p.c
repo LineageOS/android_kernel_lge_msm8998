@@ -1795,9 +1795,7 @@ static int es9218p_sabre_bypass2hifi(void)
     }
 #endif    
     es9218_set_thd(g_es9218_priv->i2c_client, g_headset_type);
-//#ifdef CONFIG_SND_SOC_LGE_ESS_DIGITAL_FILTER  // move this code to hal layer, because this cause spark noise(pop-up noise).
-//    es9218_sabre_cfg_custom_filter(&es9218_sabre_custom_ft[g_sabre_cf_num]);  // for the history, this code remains as annotation.
-//#endif
+    es9218_sabre_cfg_custom_filter(&es9218_sabre_custom_ft[g_sabre_cf_num]);        // set digital filter
     es9218_write_reg(g_es9218_priv->i2c_client, ES9218P_REG_15, g_left_volume);     // set left channel digital volume level
     es9218_write_reg(g_es9218_priv->i2c_client, ES9218P_REG_16, g_right_volume);    // set right channel digital volume level
 
