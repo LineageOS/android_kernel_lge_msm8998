@@ -288,7 +288,7 @@ fail:
 	return err;
 }
 
-void diagfwd_bridge_exit()
+void diagfwd_bridge_exit(void)
 {
 	#ifdef USB_QCOM_DIAG_BRIDGE
 	diag_hsic_exit();
@@ -315,7 +315,7 @@ int diagfwd_bridge_write(int id, unsigned char *buf, int len)
 	return 0;
 }
 
-uint16_t diag_get_remote_device_mask()
+uint16_t diag_get_remote_device_mask(void)
 {
 	int i;
 	uint16_t remote_dev = 0;
