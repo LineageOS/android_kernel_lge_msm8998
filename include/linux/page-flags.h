@@ -79,6 +79,7 @@ enum pageflags {
 	PG_dirty,
 	PG_lru,
 	PG_active,
+	PG_workingset,
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
 	PG_arch_1,
@@ -271,6 +272,7 @@ PAGEFLAG(Dirty, dirty, PF_ANY) TESTSCFLAG(Dirty, dirty, PF_ANY)
 PAGEFLAG(LRU, lru, PF_ANY) __CLEARPAGEFLAG(LRU, lru, PF_ANY)
 PAGEFLAG(Active, active, PF_ANY) __CLEARPAGEFLAG(Active, active, PF_ANY)
 	TESTCLEARFLAG(Active, active, PF_ANY)
+PAGEFLAG(Workingset, workingset, PF_ANY)
 __PAGEFLAG(Slab, slab, PF_ANY)
 PAGEFLAG(Checked, checked, PF_ANY)		/* Used by some filesystems */
 PAGEFLAG(Pinned, pinned, PF_ANY) TESTSCFLAG(Pinned, pinned, PF_ANY)	/* Xen */
@@ -389,13 +391,13 @@ static __always_inline int PageMappingFlags(struct page *page)
 
 static inline int PageAnon(struct page *page)
 {
-	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+   return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
 }
 
 static __always_inline int __PageMovable(struct page *page)
 {
-	return ((unsigned long)page->mapping & PAGE_MAPPING_FLAGS) ==
-				PAGE_MAPPING_MOVABLE;
+   return ((unsigned long)page->mapping & PAGE_MAPPING_FLAGS) ==
+               PAGE_MAPPING_MOVABLE;
 }
 
 #ifdef CONFIG_KSM
