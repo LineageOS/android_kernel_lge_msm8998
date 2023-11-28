@@ -1273,11 +1273,14 @@
 	};
 };
 
+/*
+ * Workaround : blocking pil-loading spss firmware
 &spss_utils {
-	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
-	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
-	qcom,spss-hybr-firmware-name = "spss2h";	/* 8 chars max */
+	qcom,spss-test-firmware-name = "spss2t";
+	qcom,spss-prod-firmware-name = "spss2p";
+	qcom,spss-hybr-firmware-name = "spss2h";
 };
+*/
 
 &ufs1 {
 	clock-names =
