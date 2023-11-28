@@ -6,3 +6,6 @@ obj-$(CONFIG_MSM_MHI) += diagfwd_mhi.o
 obj-$(CONFIG_QTI_SDIO_CLIENT) += diagfwd_sdio.o
 
 diagchar-objs := diagchar_core.o diagchar_hdlc.o diagfwd.o diagfwd_glink.o diagfwd_peripheral.o diagfwd_smd.o diagfwd_socket.o diag_mux.o diag_memorydevice.o diag_usb.o diagmem.o diagfwd_cntl.o diag_dci.o diag_masks.o diag_debugfs.o
+
+obj-$(CONFIG_LGE_USB_DIAG_LOCK) += diag_lock.o
+obj-$(CONFIG_LGE_DIAG_BYPASS) += lg_diag_bypass.o
