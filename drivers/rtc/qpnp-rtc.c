@@ -47,6 +47,10 @@
 #define TO_SECS(arr)		(arr[0] | (arr[1] << 8) | (arr[2] << 16) | \
 							(arr[3] << 24))
 
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+static unsigned long rtc_offset_secs;
+#endif
+
 /* Module parameter to control power-on-alarm */
 bool poweron_alarm;
 EXPORT_SYMBOL(poweron_alarm);
@@ -106,6 +110,10 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 
 	rtc_tm_to_time(tm, &secs);
+
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+	secs -= rtc_offset_secs;
+#endif
 
 	value[0] = secs & 0xFF;
 	value[1] = (secs >> 8) & 0xFF;
@@ -262,7 +270,11 @@ qpnp_rtc_read_time(struct device *dev, struct rtc_time *tm)
 		}
 	}
 
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+	secs = rtc_offset_secs + TO_SECS(value);
+#else
 	secs = TO_SECS(value);
+#endif
 
 	rtc_time_to_tm(secs, tm);
 
@@ -305,6 +317,10 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		dev_err(dev, "Trying to set alarm in the past\n");
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+	secs -= rtc_offset_secs;
+#endif
 
 	value[0] = secs & 0xFF;
 	value[1] = (secs >> 8) & 0xFF;
@@ -359,7 +375,12 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return rc;
 	}
 
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+	secs = rtc_offset_secs + TO_SECS(value);
+#else
 	secs = TO_SECS(value);
+#endif
+
 	rtc_time_to_tm(secs, &alarm->time);
 
 	rc = rtc_valid_tm(&alarm->time);
@@ -485,6 +506,10 @@ static int qpnp_rtc_probe(struct platform_device *pdev)
 	struct qpnp_rtc *rtc_dd;
 	unsigned int base;
 	struct device_node *child;
+
+#ifdef CONFIG_RTC_DRV_QPNP_YEAR
+	rtc_offset_secs = mktime(CONFIG_RTC_DRV_QPNP_YEAR, 3, 1, 0, 0, 0);
+#endif
 
 	rtc_dd = devm_kzalloc(&pdev->dev, sizeof(*rtc_dd), GFP_KERNEL);
 	if (rtc_dd == NULL)
