@@ -194,6 +194,16 @@ struct msm_port {
 
 #define UART_TO_MSM(uart_port)	container_of(uart_port, struct msm_port, uart)
 
+#ifdef CONFIG_LGE_USB_DEBUGGER
+enum {
+	UART_CONSOLE_DISABLED = 0,
+	UART_CONSOLE_ENABLED,
+	UART_CONSOLE_PREPARE,
+};
+
+static int g_ms_status = UART_CONSOLE_PREPARE;
+#endif
+
 static
 void msm_write(struct uart_port *port, unsigned int val, unsigned int off)
 {
@@ -1685,6 +1695,46 @@ static void msm_console_write(struct console *co, const char *s,
 	__msm_console_write(port, s, count, msm_port->is_uartdm);
 }
 
+#ifdef CONFIG_LGE_USB_DEBUGGER
+int msm_serial_get_uart_console_status(void)
+{
+	return g_ms_status;
+}
+EXPORT_SYMBOL(msm_serial_get_uart_console_status);
+
+int msm_serial_set_uart_console(int enable)
+{
+	int ret = 0;
+	struct uart_port *port = msm_get_port_from_line(0);
+	struct msm_port *msm_port = UART_TO_MSM(port);
+
+	if (g_ms_status == UART_CONSOLE_PREPARE \
+			|| port == NULL \
+			|| enable == g_ms_status)
+		return -EINVAL;
+
+	if (enable) {
+		ret = clk_prepare_enable(msm_port->clk);
+		if (ret) {
+			return ret;
+		}
+
+		ret = clk_prepare_enable(msm_port->pclk);
+		if (ret) {
+			clk_disable_unprepare(msm_port->clk);
+			return ret;
+		}
+	} else {
+		clk_disable_unprepare(msm_port->pclk);
+		clk_disable_unprepare(msm_port->clk);
+	}
+	g_ms_status = enable;
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_serial_set_uart_console);
+#endif
+
 static int __init msm_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
@@ -1844,6 +1894,9 @@ static int msm_serial_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, port);
 
+#ifdef CONFIG_LGE_USB_DEBUGGER
+	g_ms_status = UART_CONSOLE_ENABLED;
+#endif
 	return uart_add_one_port(&msm_uart_driver, port);
 }
 
