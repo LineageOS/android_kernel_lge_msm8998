@@ -228,7 +228,6 @@ struct sdhci_msm_host {
 	bool mci_removed;
 	const struct sdhci_msm_offset *offset;
 	bool core_3_0v_support;
-	bool pltfm_init_done;
 
 	/* temperature controlled scaling */
 	int tsens_id;
