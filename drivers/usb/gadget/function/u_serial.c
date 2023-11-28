@@ -556,6 +556,13 @@ static void gs_rx_push(struct work_struct *w)
 
 	/* hand any queued data to the tty */
 	spin_lock_irq(&port->port_lock);
+#ifdef CONFIG_LGE_USB_GADGET
+	if (!port->port_usb) {
+		pr_err("Error - port->usb is NULL.");
+		spin_unlock_irq(&port->port_lock);
+		return;
+	}
+#endif
 	tty = port->port.tty;
 	while (!list_empty(queue)) {
 		struct usb_request	*req;
@@ -780,7 +787,11 @@ static int gs_start_io(struct gs_port *port)
 	if (!port->port_usb)
 		return -EIO;
 
+#ifndef CONFIG_LGE_USB_GADGET
 	if (started) {
+#else
+	if (started && port->port.tty) {
+#endif
 		gs_start_tx(port);
 		/* Unblock any pending writes into our circular buffer, in case
 		 * we didn't in gs_start_tx() */

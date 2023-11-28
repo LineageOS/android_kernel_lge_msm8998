@@ -10,6 +10,18 @@
 #include "u_os_desc.h"
 #include "debug.h"
 
+#ifdef CONFIG_LGE_USB_GADGET
+#include "u_lgeusb.h"
+#endif
+
+#ifdef CONFIG_LGE_USB_EMBEDDED_BATTERY
+#include <soc/qcom/lge/board_lge.h>
+#include <linux/reboot.h>
+#include <soc/qcom/restart.h>
+#include <linux/delay.h>
+#include <linux/power_supply.h>
+#endif
+
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 #include <linux/platform_device.h>
 #include <linux/kdev_t.h>
@@ -20,10 +32,20 @@ extern int acc_ctrlrequest_composite(struct usb_composite_dev *cdev,
 				const struct usb_ctrlrequest *ctrl);
 void acc_disconnect(void);
 #endif
+
+#ifdef CONFIG_LGE_USB_GADGET
+extern int ncm_ctrlrequest(struct usb_composite_dev *cdev,
+				const struct usb_ctrlrequest *ctrl);
+extern void clear_ncm_start_requested(void);
+#endif
+
 static struct class *android_class;
 static struct device *android_device;
 static int index;
 static int gadget_index;
+#ifdef CONFIG_LGE_USB_EMBEDDED_BATTERY
+static int firstboot_check = 1;
+#endif
 
 struct device *create_function_device(char *name)
 {
@@ -97,6 +119,9 @@ struct gadget_info {
 	bool sw_connected;
 	struct work_struct work;
 	struct device *dev;
+#ifdef CONFIG_LGE_USB_FACTORY
+	bool factory_lock;
+#endif
 #endif
 };
 
@@ -187,6 +212,21 @@ static ssize_t gadget_dev_desc_##__name##_show(struct config_item *item, \
 }
 
 
+#ifdef CONFIG_LGE_USB_FACTORY
+#define GI_DEVICE_DESC_SIMPLE_W_u8(_name)		\
+static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
+		const char *page, size_t len)		\
+{							\
+	u8 val;						\
+	int ret;					\
+	if (to_gadget_info(item)->factory_lock) return -EPERM; \
+	ret = kstrtou8(page, 0, &val);			\
+	if (ret)					\
+		return ret;				\
+	to_gadget_info(item)->cdev.desc._name = val;	\
+	return len;					\
+}
+#else
 #define GI_DEVICE_DESC_SIMPLE_W_u8(_name)		\
 static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
 		const char *page, size_t len)		\
@@ -199,7 +239,23 @@ static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
 	to_gadget_info(item)->cdev.desc._name = val;	\
 	return len;					\
 }
+#endif
 
+#ifdef CONFIG_LGE_USB_FACTORY
+#define GI_DEVICE_DESC_SIMPLE_W_u16(_name)	\
+static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
+		const char *page, size_t len)		\
+{							\
+	u16 val;					\
+	int ret;					\
+	if (to_gadget_info(item)->factory_lock) return -EPERM; \
+	ret = kstrtou16(page, 0, &val);			\
+	if (ret)					\
+		return ret;				\
+	to_gadget_info(item)->cdev.desc._name = cpu_to_le16p(&val);	\
+	return len;					\
+}
+#else
 #define GI_DEVICE_DESC_SIMPLE_W_u16(_name)	\
 static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
 		const char *page, size_t len)		\
@@ -212,6 +268,7 @@ static ssize_t gadget_dev_desc_##_name##_store(struct config_item *item, \
 	to_gadget_info(item)->cdev.desc._name = cpu_to_le16p(&val);	\
 	return len;					\
 }
+#endif
 
 #define GI_DEVICE_DESC_SIMPLE_RW(_name, _type)	\
 	GI_DEVICE_DESC_SIMPLE_R_##_type(_name)	\
@@ -245,6 +302,11 @@ static ssize_t gadget_dev_desc_bcdDevice_store(struct config_item *item,
 	u16 bcdDevice;
 	int ret;
 
+#ifdef CONFIG_LGE_USB_FACTORY
+	if (to_gadget_info(item)->factory_lock)
+		return -EPERM;
+#endif
+
 	ret = kstrtou16(page, 0, &bcdDevice);
 	if (ret)
 		return ret;
@@ -261,6 +323,11 @@ static ssize_t gadget_dev_desc_bcdUSB_store(struct config_item *item,
 {
 	u16 bcdUSB;
 	int ret;
+
+#ifdef CONFIG_LGE_USB_FACTORY
+	if (to_gadget_info(item)->factory_lock)
+		return -EPERM;
+#endif
 
 	ret = kstrtou16(page, 0, &bcdUSB);
 	if (ret)
@@ -289,6 +356,7 @@ static int unregister_gadget(struct gadget_info *gi)
 	ret = usb_gadget_unregister_driver(&gi->composite.gadget_driver);
 	if (ret)
 		return ret;
+
 	gi->unbinding = false;
 	kfree(gi->udc_name);
 	gi->udc_name = NULL;
@@ -301,6 +369,16 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 	struct gadget_info *gi = to_gadget_info(item);
 	char *name;
 	int ret;
+#ifdef CONFIG_LGE_USB_GADGET
+	struct usb_composite_dev *cdev = &gi->cdev;
+#endif
+
+#ifdef CONFIG_LGE_USB_FACTORY
+	if (gi->factory_lock && gi->udc_name) {
+		pr_err("%s: pif cable is plugged, not permitted\n", __func__);
+		return -EPERM;
+	}
+#endif
 
 	if (strlen(page) < len)
 		return -EOVERFLOW;
@@ -319,6 +397,32 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 			goto err;
 		kfree(name);
 	} else {
+#ifdef CONFIG_LGE_USB_GADGET
+		if (!gi->connected && gi->sw_connected) {
+			struct usb_configuration *c;
+			bool has_rndis = false;
+
+			list_for_each_entry(c, &gi->cdev.configs, list) {
+				struct usb_function *f, *tmp;
+				struct config_usb_cfg *cfg;
+
+				cfg = container_of(c, struct config_usb_cfg, c);
+
+				list_for_each_entry_safe(f,
+							 tmp,
+							 &cfg->func_list,
+							 list) {
+					if (!strcmp(f->name, "rndis")) {
+						has_rndis = true;
+						break;
+					}
+				}
+			}
+
+			if (!has_rndis)
+				schedule_work(&gi->work);
+		}
+#endif
 		if (gi->udc_name) {
 			ret = -EBUSY;
 			goto err;
@@ -329,6 +433,16 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 		gi->udc_name = name;
 	}
 	mutex_unlock(&gi->lock);
+#ifdef CONFIG_LGE_USB_GADGET
+	if (gi->udc_name) {
+		pr_info("%s [%s] VID(0x%04X), PID(0x%04X)\n", __func__,
+				gi->udc_name,
+				cdev->desc.idVendor,
+				cdev->desc.idProduct);
+	} else {
+		pr_info("%s [none]\n", __func__);
+	}
+#endif
 	return len;
 err:
 	kfree(name);
@@ -420,6 +534,12 @@ static int config_usb_cfg_link(
 	int ret;
 
 	mutex_lock(&gi->lock);
+#ifdef CONFIG_LGE_USB_FACTORY
+	if (gi->factory_lock) {
+		mutex_unlock(&gi->lock);
+		return -EPERM;
+	}
+#endif
 	/*
 	 * Make sure this function is from within our _this_ gadget and not
 	 * from another gadget or a random directory.
@@ -447,9 +567,22 @@ static int config_usb_cfg_link(
 		goto out;
 	}
 
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+	if (f->multi_config_support) {
+		f = kmemdup(f, sizeof(*f), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(f)) {
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
+#endif
+
 	/* stash the function until we bind it to the gadget */
 	list_add_tail(&f->list, &cfg->func_list);
 	ret = 0;
+#ifdef CONFIG_LGE_USB_GADGET
+	pr_info("%s [%d:%s]\n", __func__, cfg->c.bConfigurationValue, f->name);
+#endif
 out:
 	mutex_unlock(&gi->lock);
 	return ret;
@@ -467,6 +600,9 @@ static int config_usb_cfg_unlink(
 	struct usb_function_instance *fi = container_of(group,
 			struct usb_function_instance, group);
 	struct usb_function *f;
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+	bool multi_config_support;
+#endif
 
 	/*
 	 * ideally I would like to forbid to unlink functions while a gadget is
@@ -475,14 +611,29 @@ static int config_usb_cfg_unlink(
 	 * remove the function.
 	 */
 	mutex_lock(&gi->lock);
+#ifdef CONFIG_LGE_USB_FACTORY
+	if (gi->factory_lock) {
+		mutex_unlock(&gi->lock);
+		return -EPERM;
+	}
+#endif
 	if (gi->udc_name)
 		unregister_gadget(gi);
 	WARN_ON(gi->udc_name);
 
 	list_for_each_entry(f, &cfg->func_list, list) {
 		if (f->fi == fi) {
+
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			multi_config_support = f->multi_config_support;
+#endif
 			list_del(&f->list);
 			usb_put_function(f);
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			if (multi_config_support) {
+				kfree(f);
+			}
+#endif
 			mutex_unlock(&gi->lock);
 			return 0;
 		}
@@ -1271,6 +1422,16 @@ static void purge_configs_funcs(struct gadget_info *gi)
 						" '%s'/%pK\n", f->name, f);
 				f->unbind(c, f);
 			}
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			if (f->multi_config_support) {
+				if (f->fs_descriptors)
+					usb_free_descriptors(f->fs_descriptors);
+				if (f->hs_descriptors)
+					usb_free_descriptors(f->hs_descriptors);
+				if (f->ss_descriptors)
+					usb_free_descriptors(f->ss_descriptors);
+			}
+#endif
 		}
 		c->next_interface_id = 0;
 		memset(c->interface, 0, sizeof(c->interface));
@@ -1347,6 +1508,11 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 		gi->cdev.desc.iManufacturer = s[USB_GADGET_MANUFACTURER_IDX].id;
 		gi->cdev.desc.iProduct = s[USB_GADGET_PRODUCT_IDX].id;
 		gi->cdev.desc.iSerialNumber = s[USB_GADGET_SERIAL_IDX].id;
+#ifdef CONFIG_LGE_USB_FACTORY
+		if (cdev->desc.idVendor == cpu_to_le16(LGE_USB_VID) &&
+		    cdev->desc.idProduct == cpu_to_le16(LGE_USB_FACTROY_PID))
+			cdev->desc.iSerialNumber = 0;
+#endif
 	}
 
 	if (gi->use_os_desc) {
@@ -1394,6 +1560,11 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 				goto err_comp_cleanup;
 			}
 			c->iConfiguration = s[0].id;
+#ifdef CONFIG_LGE_USB_FACTORY
+			if (cdev->desc.idVendor == cpu_to_le16(LGE_USB_VID) &&
+			    cdev->desc.idProduct == cpu_to_le16(LGE_USB_FACTROY_PID))
+				c->iConfiguration = 0;
+#endif
 		}
 
 		list_for_each_entry_safe(f, tmp, &cfg->func_list, list) {
@@ -1403,6 +1574,19 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 				list_add(&f->list, &cfg->func_list);
 				goto err_purge_funcs;
 			}
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			if (f->multi_config_support) {
+				if (f->fs_descriptors)
+					f->fs_descriptors =
+						usb_copy_descriptors(f->fs_descriptors);
+				if (f->hs_descriptors)
+					f->hs_descriptors =
+						usb_copy_descriptors(f->hs_descriptors);
+				if (f->ss_descriptors)
+					f->ss_descriptors =
+						usb_copy_descriptors(f->ss_descriptors);
+			}
+#endif
 		}
 		usb_ep_autoconfig_reset(cdev->gadget);
 	}
@@ -1416,6 +1600,7 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 	return 0;
 
 err_purge_funcs:
+	//WARN_ON(1);
 	purge_configs_funcs(gi);
 err_comp_cleanup:
 	composite_dev_cleanup(cdev);
@@ -1423,6 +1608,72 @@ err_comp_cleanup:
 }
 
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
+#ifdef CONFIG_LGE_USB_EMBEDDED_BATTERY
+#ifdef CONFIG_LGE_PM_VENEER_PSY
+static int lge_get_cable_type(void)
+{
+	struct power_supply *psy;
+	union power_supply_propval val = { .intval = 0 };
+	int ret = 0;
+	int cable_type = 0;
+
+	psy = power_supply_get_by_name("usb");
+	if (!psy) {
+		pr_err("%s: usb psy doesn't prepared\n", __func__);
+		return 0;
+	}
+
+	ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_RESISTANCE_ID, &val);
+	if (ret) {
+		pr_err("%s: Unable to read USB RESISTANCE ID: %d\n", __func__, ret);
+		return ret;
+	}
+	cable_type = val.intval / 1000;
+
+	if (psy)
+		power_supply_put(psy);
+
+	return cable_type;
+}
+#endif
+
+static bool lge_get_cc_type_debug_accessory(void)
+{
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+
+	switch (lge_get_boot_mode()) {
+	case LGE_BOOT_MODE_QEM_56K:
+	case LGE_BOOT_MODE_QEM_130K:
+	case LGE_BOOT_MODE_QEM_910K:
+		return true;
+	default:
+		break;
+	}
+
+	psy = power_supply_get_by_name("usb");
+	if (!psy) {
+		pr_err("%s: usb psy doesn't prepared\n", __func__);
+		return true;
+	}
+
+	ret = power_supply_get_property(psy,
+					POWER_SUPPLY_PROP_TYPEC_MODE, &val);
+	if (ret) {
+		pr_err("%s: Unable to read USB TYPEC_MODE: %d\n", __func__, ret);
+		return true;
+	}
+
+	pr_debug("%s: typec_mode = %d\n", __func__, val.intval);
+	if (val.intval == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+		return true;
+
+	return false;
+}
+#endif
+
 static void android_work(struct work_struct *data)
 {
 	struct gadget_info *gi = container_of(data, struct gadget_info, work);
@@ -1473,6 +1724,45 @@ static void android_work(struct work_struct *data)
 		pr_info("%s: did not send uevent (%d %d %pK)\n", __func__,
 			gi->connected, gi->sw_connected, cdev->config);
 	}
+
+#if defined(CONFIG_LGE_USB_EMBEDDED_BATTERY) && defined(CONFIG_LGE_PM_VENEER_PSY)
+	if (status[0]) {
+		if (lge_get_cable_type() == 56 &&
+		    lge_get_cc_type_debug_accessory() &&
+		    lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL) {
+			usb_gadget_disconnect(cdev->gadget);
+			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+
+			pr_info("[FACTORY] PIF_56K detected in NORMAL BOOT, reboot!!\n");
+			msleep(50); // wait for usb gadget disconnect
+
+			kernel_restart(NULL);
+
+		} else if (!lge_get_laf_mode() &&
+			   lge_get_cable_type() == 910 &&
+			   lge_get_cc_type_debug_accessory() &&
+			   (lge_get_boot_cable() != LT_CABLE_910K ||
+			    !firstboot_check)) {
+			usb_gadget_disconnect(cdev->gadget);
+			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+			pr_info("[FACTORY] reset due to 910K cable, pm:%d, xbl:%d, firstboot_check:%d\n",
+				lge_get_cable_type(), lge_get_factory_cable(), firstboot_check);
+
+			msleep(50); // wait for usb gadget disconnect
+
+			msm_set_restart_mode(RESTART_DLOAD);
+			kernel_restart(NULL);
+		}
+	}
+
+	if (status[1] &&
+		cdev->desc.idVendor == cpu_to_le16(LGE_USB_VID) &&
+		cdev->desc.idProduct == cpu_to_le16(LGE_USB_FACTROY_PID)) {
+		pr_info("[cable info] boot_mode:%d, dlcomplete:%d\n",
+			lge_get_boot_mode(), lge_get_android_dlcomplete());
+		firstboot_check = 0;
+	}
+#endif
 }
 #endif
 
@@ -1617,7 +1907,10 @@ static int android_setup(struct usb_gadget *gadget,
 				break;
 		}
 	}
-
+#ifdef CONFIG_LGE_USB_GADGET
+	if (value < 0)
+		value = ncm_ctrlrequest(cdev, c);
+#endif
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 	if (value < 0)
 		value = acc_ctrlrequest_composite(cdev, c);
@@ -1667,6 +1960,9 @@ static void android_disconnect(struct usb_gadget *gadget)
 
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 	acc_disconnect();
+#endif
+#ifdef CONFIG_LGE_USB_GADGET
+	clear_ncm_start_requested();
 #endif
 	gi->connected = 0;
 	if (!gi->unbinding)
@@ -1726,8 +2022,36 @@ out:
 
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 
+#ifdef CONFIG_LGE_USB_FACTORY
+static ssize_t lock_show(struct device *pdev, struct device_attribute *attr,
+			 char *buf)
+{
+	struct gadget_info *dev = dev_get_drvdata(pdev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", dev->factory_lock);
+}
+
+static ssize_t lock_store(struct device *pdev, struct device_attribute *attr,
+			  const char *buff, size_t size)
+{
+	struct gadget_info *dev = dev_get_drvdata(pdev);
+	int lock = 0;
+
+	mutex_lock(&dev->lock);
+	if (sscanf(buff, "%d", &lock) == 1)
+		dev->factory_lock = lock;
+	mutex_unlock(&dev->lock);
+
+	return size;
+}
+
+static DEVICE_ATTR(lock, S_IRUGO | S_IWUSR, lock_show, lock_store);
+#endif
+
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_state,
+#ifdef CONFIG_LGE_USB_FACTORY
+	&dev_attr_lock,
+#endif
 	NULL
 };
 

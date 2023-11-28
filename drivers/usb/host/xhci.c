@@ -973,7 +973,7 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	struct usb_hcd		*hcd = xhci_to_hcd(xhci);
 	u32			command;
 
-	if (!hcd->state || xhci->suspended)
+	if (!hcd->state)
 		return 0;
 
 	if (hcd->state != HC_STATE_SUSPENDED ||
@@ -1043,7 +1043,6 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	/* step 5: remove core well power */
 	/* synchronize irq when using MSI-X */
 	xhci_msix_sync_irqs(xhci);
-	xhci->suspended = true;
 
 	return rc;
 }
@@ -1064,7 +1063,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	bool			comp_timer_running = false;
 	bool			pending_portevent = false;
 
-	if (!hcd->state || !xhci->suspended)
+	if (!hcd->state)
 		return 0;
 
 	/* Wait a bit if either of the roothubs need to settle from the
@@ -1223,7 +1222,6 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 
 	/* Re-enable port polling. */
 	xhci_dbg(xhci, "%s: starting port polling.\n", __func__);
-	xhci->suspended = false;
 	set_bit(HCD_FLAG_POLL_RH, &xhci->shared_hcd->flags);
 	usb_hcd_poll_rh_status(xhci->shared_hcd);
 	set_bit(HCD_FLAG_POLL_RH, &hcd->flags);
