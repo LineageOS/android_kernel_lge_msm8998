@@ -32,6 +32,7 @@
 #define BATT_SOC_RST_CTRL0(chip)		(chip->batt_soc_base + 0xBA)
 
 /* BATT_SOC_INT_RT_STS */
+#define SOC_READY_BIT				BIT(1)
 #define MSOC_EMPTY_BIT				BIT(5)
 
 /* BATT_SOC_EN_CTL */
@@ -42,6 +43,8 @@
 
 /* BCL_RESET */
 #define BCL_RESET_BIT				BIT(2)
+#define MEM_RST_BIT				BIT(1)
+#define ALG_RST_BIT				BIT(0)
 
 /* FG_BATT_INFO register definitions */
 #define BATT_INFO_BATT_TEMP_STS(chip)		(chip->batt_info_base + 0x06)
@@ -335,8 +338,17 @@
 #define DMA_READ_ERROR_BIT			BIT(2)
 
 /* MEM_IF_DMA_CTL */
+#define ADDR_KIND_BIT				BIT(1)
 #define DMA_CLEAR_LOG_BIT			BIT(0)
 
 /* MEM_IF_REQ */
+#define MEM_IF_ARB_LO_LATENCY_EN_BIT		BIT(1)
 #define MEM_IF_ARB_REQ_BIT			BIT(0)
+
+/* FG_DMAx */
+#define FG_DMA0_BASE				0x4800
+#define FG_DMA1_BASE				0x4900
+#define FG_DMA2_BASE				0x4A00
+#define FG_DMA3_BASE				0x4B00
+#define SRAM_ADDR_OFFSET			0x20
 #endif
