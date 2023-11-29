@@ -28,6 +28,26 @@
 #include <sound/q6core.h>
 #include "msm-dts-srs-tm-config.h"
 #include <sound/adsp_err.h>
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+#include <linux/switch.h>
+#include "lge_dsp_nxp_lib.h"
+
+enum {
+    RAM_INIT = 0,
+    RAM_ACTIVE = 1
+};
+
+struct mutex ram_lock;
+struct delayed_work ram_standby_work;
+struct switch_dev ram_sdev = {
+    .name = LGE_SWITCH_RAM_STATUS,
+};
+
+static int ram_status;
+#endif
+#ifdef CONFIG_MACH_LGE
+#define AUDIO_RX_LGE        (0x10010712)
+#endif
 
 #define TIMEOUT_MS 1000
 
@@ -48,6 +68,12 @@
 #ifndef CONFIG_DOLBY_DS2
 #undef DS2_ADM_COPP_TOPOLOGY_ID
 #define DS2_ADM_COPP_TOPOLOGY_ID 0xFFFFFFFF
+#endif
+
+//#define LVVE
+#if defined (LVVE)
+#define VPM_TX_SM_LVVEFQ    (0x1000BFF0)  // 268484592
+#define VPM_TX_DM_LVVEFQ    (0x1000BFF1)  // 268484593
 #endif
 
 struct adm_copp {
@@ -1271,6 +1297,10 @@ static int adm_process_get_param_response(u32 opcode, u32 idx, u32 *payload,
 			data_size / sizeof(*adm_get_parameters);
 		pr_debug("%s: GET_PP PARAM: received parameter length: 0x%x\n",
 			 __func__, adm_get_parameters[idx]);
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+                pr_info("%s: GET_PP PARAM:received data->payload_size: %d, copp_idx=%d, payload[0](status)=%d, payload[1](module id)=0x%x, payload[2](param id)=0x%x, payload[3](param size)=%d\n",
+                    __func__, data->payload_size, copp_idx, payload[0], payload[1], payload[2], payload[3]);
+#endif
 		/* store params after param_size */
 		if (param_data == NULL) {
 			pr_err("%s: Invalid parameter data got!\n", __func__);
@@ -1333,6 +1363,23 @@ static int adm_process_get_topo_list_response(u32 opcode, int copp_idx,
 
 	return 0;
 }
+
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+static void adm_ram_status_work(struct work_struct *work)
+{
+    mutex_lock(&ram_lock);
+    pr_info("%s : enter ram status = %d\n", __func__, ram_status);
+
+    if (ram_status == 0) {
+       switch_set_state(&ram_sdev, RAM_INIT);
+    } else {
+       switch_set_state(&ram_sdev, RAM_ACTIVE);
+    }
+
+    mutex_unlock(&ram_lock);
+    pr_info("%s : exit\n", __func__);
+}
+#endif
 
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
@@ -1670,6 +1717,14 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			atomic_set(&this_adm.adm_stat, 0);
 			wake_up(&this_adm.adm_wait);
 			break;
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+        case ADM_RAM_STATUS:
+            pr_debug("%s, copp_idx %d, payload[0](status)=%d\n", __func__, copp_idx, payload[0]);
+
+            ram_status = payload[0];
+            schedule_delayed_work(&ram_standby_work, msecs_to_jiffies(10));
+            break;
+#endif
 		default:
 			pr_err("%s: Unknown cmd:0x%x\n", __func__,
 				data->opcode);
@@ -2008,7 +2063,8 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_index == ADM_AUDPROC_CAL) {
+		if (cal_index == ADM_AUDPROC_CAL ||
+		    cal_index == ADM_LSM_AUDPROC_CAL) {
 			audproc_cal_info = cal_block->cal_info;
 			if (audproc_cal_info->path == path)
 				return cal_block;
@@ -2038,7 +2094,8 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_index == ADM_AUDPROC_CAL) {
+		if (cal_index == ADM_AUDPROC_CAL ||
+		    cal_index == ADM_LSM_AUDPROC_CAL) {
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type))
@@ -2072,7 +2129,8 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_index == ADM_AUDPROC_CAL) {
+		if (cal_index == ADM_AUDPROC_CAL ||
+		    cal_index == ADM_LSM_AUDPROC_CAL) {
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
@@ -2151,12 +2209,17 @@ static int get_cal_path(int path)
 }
 
 static void send_adm_cal(int port_id, int copp_idx, int path, int perf_mode,
-			 int app_type, int acdb_id, int sample_rate)
+			 int app_type, int acdb_id, int sample_rate,
+			 int passthr_mode)
 {
 	pr_debug("%s: port id 0x%x copp_idx %d\n", __func__, port_id, copp_idx);
 
-	send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx, perf_mode,
-			  app_type, acdb_id, sample_rate);
+	if (passthr_mode != LISTEN)
+		send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx,
+				perf_mode, app_type, acdb_id, sample_rate);
+	else
+		send_adm_cal_type(ADM_LSM_AUDPROC_CAL, path, port_id, copp_idx,
+				  perf_mode, app_type, acdb_id, sample_rate);
 	send_adm_cal_type(ADM_AUDVOL_CAL, path, port_id, copp_idx, perf_mode,
 			  app_type, acdb_id, sample_rate);
 	return;
@@ -2887,6 +2950,26 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		 __func__, port_id, path, rate, channel_mode, perf_mode,
 		 topology);
 
+/* For LSM FLUENCE DEVICE topology only, force fluence topology */
+#ifdef CONFIG_MACH_LGE
+      if(acdb_id==149 && topology != FLUENCE_AUDIOV5_TOPOLOGY)
+      {
+	    pr_err("%s: Fluence Invalid topology ID 0x%x Force change to fluence\n", __func__, topology);
+        topology = FLUENCE_AUDIOV5_TOPOLOGY;
+      }
+#endif
+
+#ifdef CONFIG_MACH_LGE
+	/* For AUDIO_RX_LGE topology only, force 24 bit */
+	if(topology == AUDIO_RX_LGE) {
+		bit_width = 24;
+	}
+#if defined(CONFIG_SND_SOC_TFA9872)
+	if(port_id == AFE_PORT_ID_TERTIARY_MI2S_RX) {
+		bit_width = 24;
+	}
+#endif
+#endif
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
 	if (port_idx < 0) {
@@ -3359,7 +3442,8 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode,
 				     get_cal_path(path), perf_mode,
 				     payload_map.app_type[i],
 				     payload_map.acdb_dev_id[i],
-				     payload_map.sample_rate[i]);
+				     payload_map.sample_rate[i],
+				     passthr_mode);
 			/* ADM COPP calibration is already sent */
 			clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 				(void *)&this_adm.copp.
@@ -3716,6 +3800,9 @@ static int get_cal_type_index(int32_t cal_type)
 	case ADM_AUDPROC_CAL_TYPE:
 		ret = ADM_AUDPROC_CAL;
 		break;
+	case ADM_LSM_AUDPROC_CAL_TYPE:
+		ret = ADM_LSM_AUDPROC_CAL;
+		break;
 	case ADM_AUDVOL_CAL_TYPE:
 		ret = ADM_AUDVOL_CAL;
 		break;
@@ -3915,6 +4002,12 @@ static int adm_init_cal_data(void)
 		cal_utils_match_buf_num} },
 
 		{{ADM_AUDPROC_CAL_TYPE,
+		{adm_alloc_cal, adm_dealloc_cal, NULL,
+		adm_set_cal, NULL, NULL} },
+		{adm_map_cal_data, adm_unmap_cal_data,
+		cal_utils_match_buf_num} },
+
+		{{ADM_LSM_AUDPROC_CAL_TYPE,
 		{adm_alloc_cal, adm_dealloc_cal, NULL,
 		adm_set_cal, NULL, NULL} },
 		{adm_map_cal_data, adm_unmap_cal_data,
@@ -4279,7 +4372,7 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 		goto unlock;
 	}
 
-	if (cal_index == ADM_AUDPROC_CAL) {
+	if (cal_index == ADM_AUDPROC_CAL || cal_index == ADM_LSM_AUDPROC_CAL) {
 		if (cal_block->cal_data.size > AUD_PROC_BLOCK_SIZE) {
 			pr_err("%s:audproc:invalid size exp/actual[%zd, %d]\n",
 				__func__, cal_block->cal_data.size, *size);
@@ -4701,6 +4794,92 @@ done:
 	return ret;
 }
 
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+int q6adm_set_tx_cfg_parms(int  port_id, struct tx_control_param_t *tx_control_param)
+{
+    int rc, sz;
+    int port_idx, copp_idx;
+    struct adm_tx_config_param adm_tx_config;
+
+    port_id = afe_convert_virtual_to_portid(port_id);
+    port_idx = adm_validate_and_get_port_index(port_id);
+    copp_idx = adm_get_default_copp_idx(port_id);
+
+    pr_info("%s : port_id %x, copp_idx %d, port_idx %d\n", __func__, port_id, copp_idx, port_idx);
+
+    if (port_idx < 0) {
+        pr_err("%s : Invalid port_id 0x%x\n", __func__, port_id);
+        return -EINVAL;
+    }
+
+    if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+        pr_err("%s: Invalid copp_num: %d\n", __func__, copp_idx);
+        return -EINVAL;
+    }
+
+    sz = sizeof(struct adm_tx_config_param);
+
+    adm_tx_config.params.hdr.hdr_field =
+        APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+    adm_tx_config.params.hdr.pkt_size = sz;
+    adm_tx_config.params.hdr.src_svc = APR_SVC_ADM;
+    adm_tx_config.params.hdr.src_domain = APR_DOMAIN_APPS;
+    adm_tx_config.params.hdr.src_port = port_id;
+    adm_tx_config.params.hdr.dest_svc = APR_SVC_ADM;
+    adm_tx_config.params.hdr.dest_domain = APR_DOMAIN_ADSP;
+    adm_tx_config.params.hdr.dest_port = atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+    adm_tx_config.params.hdr.token = port_idx << 16 | copp_idx;
+    adm_tx_config.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+
+    adm_tx_config.params.payload_addr_lsw = 0;
+    adm_tx_config.params.payload_addr_msw = 0;
+    adm_tx_config.params.mem_map_handle = 0;
+    adm_tx_config.params.payload_size = sizeof(struct adm_param_data_v5) +
+        sizeof(struct tx_control_param_t);
+
+    adm_tx_config.data.module_id = AUDIO_MODULE_AC;
+    adm_tx_config.data.param_id = AUDIO_PARAM_AC;
+    adm_tx_config.data.param_size = sizeof(struct tx_control_param_t);
+    adm_tx_config.data.reserved = 0;
+
+    adm_tx_config.tx_control_param = *tx_control_param;
+
+    pr_info("%s : param_size %d\n", __func__, adm_tx_config.data.param_size);
+
+    atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
+    rc = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_tx_config);
+    if (rc < 0) {
+        pr_err("%s: Set params failed port = %#x\n", __func__, port_id);
+        rc = -EINVAL;
+
+        goto fail_cmd;
+    }
+
+	/* Wait for the callback */
+    rc = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+        atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) >=0,
+        msecs_to_jiffies(TIMEOUT_MS));
+    if (!rc) {
+        pr_err("%s: Manual Gain Set params timed cut port = %#x\n", __func__, port_id);
+        rc = -EINVAL;
+
+        goto fail_cmd;
+    } else if (atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) > 0) {
+        pr_err("%s : DSP returned error[%s]\n", __func__,
+            adsp_err_get_err_str(atomic_read(&this_adm.copp.stat[port_idx][copp_idx])));
+        rc = adsp_err_get_lnx_err_code(atomic_read(&this_adm.copp.stat[port_idx][copp_idx]));
+
+        goto fail_cmd;
+    }
+
+    return 0;
+
+fail_cmd :
+    return rc;
+}
+#endif
+
 static int __init adm_init(void)
 {
 	int i = 0, j;
@@ -4723,11 +4902,25 @@ static int __init adm_init(void)
 
 	this_adm.sourceTrackingData.apr_cmd_status = -1;
 
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+    mutex_init(&ram_lock);
+    INIT_DELAYED_WORK(&ram_standby_work, adm_ram_status_work);
+
+    if(switch_dev_register(&ram_sdev) < 0) {
+		pr_err("%s : Failed to register switch device\n", __func__);
+		switch_dev_unregister(&ram_sdev);
+	}
+#endif
 	return 0;
 }
 
 static void __exit adm_exit(void)
 {
+#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
+    switch_dev_unregister(&ram_sdev);
+    cancel_delayed_work_sync(&ram_standby_work);
+    mutex_destroy(&ram_lock);
+#endif
 	adm_delete_cal_data();
 }
 

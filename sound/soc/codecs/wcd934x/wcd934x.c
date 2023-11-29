@@ -48,6 +48,9 @@
 #include "../wcd9xxx-resmgr-v2.h"
 #include "../wcdcal-hwdep.h"
 #include "wcd934x-dsd.h"
+#ifdef CONFIG_MACH_LGE // add switch dev for SAR backoff
+#include <linux/switch.h>
+#endif
 
 #define WCD934X_RATES_MASK (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
@@ -124,6 +127,7 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_STRING_LEN 100
 
 #define WCD934X_CDC_SIDETONE_IIR_COEFF_MAX 5
+#define WCD934X_CDC_REPEAT_WRITES_MAX 16
 #define WCD934X_DIG_CORE_REG_MIN  WCD934X_CDC_ANC0_CLK_RESET_CTL
 #define WCD934X_DIG_CORE_REG_MAX  0xFFF
 
@@ -138,6 +142,7 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
 
+#define  SB_OF_UF_MAX_RETRY_CNT		5
 #define CPE_ERR_WDOG_BITE BIT(0)
 #define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
 
@@ -655,8 +660,14 @@ struct tavil_priv {
 	struct tavil_idle_detect_config idle_det_cfg;
 
 	int power_active_ref;
-	int sidetone_coeff_array[IIR_MAX][BAND_MAX]
-		[WCD934X_CDC_SIDETONE_IIR_COEFF_MAX];
+	u8 sidetone_coeff_array[IIR_MAX][BAND_MAX]
+		[WCD934X_CDC_SIDETONE_IIR_COEFF_MAX * 4];
+
+	unsigned short slim_tx_of_uf_cnt[WCD934X_TX_MAX][SB_PORT_ERR_MAX];
+	
+#ifdef CONFIG_MACH_LGE // add switch dev for SAR backoff
+	struct switch_dev sar;
+#endif
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -1666,6 +1677,7 @@ static int tavil_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx_codec_dai_data *dai;
 	struct wcd9xxx *core;
+	struct wcd9xxx_ch *ch;
 	int ret = 0;
 
 	dev_dbg(codec->dev,
@@ -1697,6 +1709,13 @@ static int tavil_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}
+		/* reset overflow and underflow counts */
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+				tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_OF]
+										= 0;
+				tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_UF]
+										= 0;
+		}
 		break;
 	}
 	return ret;
@@ -1711,6 +1730,7 @@ static int tavil_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil_p = NULL;
 	int ret = 0;
 	struct wcd9xxx_codec_dai_data *dai = NULL;
+	struct wcd9xxx_ch *ch;
 
 	codec = snd_soc_dapm_to_codec(w->dapm);
 	tavil_p = snd_soc_codec_get_drvdata(codec);
@@ -1802,6 +1822,13 @@ static int tavil_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 				dai->grph);
 			dev_dbg(codec->dev, "%s: Disconnect TX port, ret = %d\n",
 				__func__, ret);
+		}
+		/* reset over.f and under.f counts */
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+				tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_OF]
+										= 0;
+				tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_UF]
+										= 0;
 		}
 		if (test_bit(VI_SENSE_1, &tavil_p->status_mask)) {
 			/* Disable V&I sensing */
@@ -1920,6 +1947,10 @@ static int tavil_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 
+#ifdef CONFIG_MACH_LGE
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+#endif
+
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
@@ -1928,6 +1959,10 @@ static int tavil_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		 * 5ms sleep is required after PA is enabled as per
 		 * HW requirement
 		 */
+#ifdef CONFIG_MACH_LGE
+		pr_info("%s : enable SAR backoff\n", __func__);
+		switch_set_state(&tavil->sar, 1);
+#endif
 		usleep_range(5000, 5500);
 		snd_soc_update_bits(codec, WCD934X_CDC_RX0_RX_PATH_CTL,
 				    0x10, 0x00);
@@ -1943,6 +1978,10 @@ static int tavil_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		 * 5ms sleep is required after PA is disabled as per
 		 * HW requirement
 		 */
+#ifdef CONFIG_MACH_LGE
+		pr_info("%s : disable SAR backoff\n", __func__);
+		switch_set_state(&tavil->sar, 0);
+#endif
 		usleep_range(5000, 5500);
 
 		if (!(strcmp(w->name, "ANC EAR PA"))) {
@@ -2587,6 +2626,16 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 					    WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL,
 					    0xF0, 0x0);
 
+#ifdef CONFIG_MACH_LGE
+		ret = tavil_mbhc_get_impedance(tavil->mbhc,
+					       &impedl, &impedr);
+		if (ret) {
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+				__func__, ret);
+			ret = 0;
+			impedl = impedr = 0;
+		}
+#endif
 		if (test_bit(CLSH_Z_CONFIG, &tavil->status_mask)) {
 			wcd_clsh_imped_config(codec, impedl, true);
 			clear_bit(CLSH_Z_CONFIG, &tavil->status_mask);
@@ -5041,6 +5090,36 @@ static int tavil_codec_reset_hph_registers(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void tavil_restore_iir_coeff(struct tavil_priv *tavil, int iir_idx,
+				int band_idx)
+{
+	u16 reg_add;
+	int no_of_reg = 0;
+
+	regmap_write(tavil->wcd9xxx->regmap,
+		(WCD934X_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL + 16 * iir_idx),
+		(band_idx * BAND_MAX * sizeof(uint32_t)) & 0x7F);
+
+	reg_add = WCD934X_CDC_SIDETONE_IIR0_IIR_COEF_B2_CTL + 16 * iir_idx;
+
+	if (tavil->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+		return;
+	/*
+	 * Since wcd9xxx_slim_write_repeat() supports only maximum of 16
+	 * registers at a time, split total 20 writes(5 coefficients per
+	 * band and 4 writes per coefficient) into 16 and 4.
+	 */
+	no_of_reg = WCD934X_CDC_REPEAT_WRITES_MAX;
+	wcd9xxx_slim_write_repeat(tavil->wcd9xxx, reg_add, no_of_reg,
+			&tavil->sidetone_coeff_array[iir_idx][band_idx][0]);
+
+	no_of_reg = (WCD934X_CDC_SIDETONE_IIR_COEFF_MAX * 4) -
+						WCD934X_CDC_REPEAT_WRITES_MAX;
+	wcd9xxx_slim_write_repeat(tavil->wcd9xxx, reg_add, no_of_reg,
+			&tavil->sidetone_coeff_array[iir_idx][band_idx]
+					  [WCD934X_CDC_REPEAT_WRITES_MAX]);
+}
+
 static int tavil_iir_enable_audio_mixer_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
@@ -5065,6 +5144,7 @@ static int tavil_iir_enable_audio_mixer_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -5072,6 +5152,8 @@ static int tavil_iir_enable_audio_mixer_put(struct snd_kcontrol *kcontrol,
 	bool iir_band_en_status;
 	int value = ucontrol->value.integer.value[0];
 	u16 iir_reg = WCD934X_CDC_SIDETONE_IIR0_IIR_CTL + 16 * iir_idx;
+
+	tavil_restore_iir_coeff(tavil, iir_idx, band_idx);
 
 	/* Mask first 5 bits, 6-8 are reserved */
 	snd_soc_update_bits(codec, iir_reg, (1 << band_idx),
@@ -5199,7 +5281,7 @@ static int tavil_iir_band_audio_mixer_put(struct snd_kcontrol *kcontrol,
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
-	int coeff_idx;
+	int coeff_idx, idx = 0;
 
 	/*
 	 * Mask top bit it is reserved
@@ -5212,11 +5294,19 @@ static int tavil_iir_band_audio_mixer_put(struct snd_kcontrol *kcontrol,
 	/* Store the coefficients in sidetone coeff array */
 	for (coeff_idx = 0; coeff_idx < WCD934X_CDC_SIDETONE_IIR_COEFF_MAX;
 		coeff_idx++) {
-		tavil->sidetone_coeff_array[iir_idx][band_idx][coeff_idx] =
-			ucontrol->value.integer.value[coeff_idx];
-		set_iir_band_coeff(codec, iir_idx, band_idx,
-			tavil->sidetone_coeff_array[iir_idx][band_idx]
-							[coeff_idx]);
+		uint32_t value = ucontrol->value.integer.value[coeff_idx];
+
+		set_iir_band_coeff(codec, iir_idx, band_idx, value);
+
+		/* Four 8 bit values(one 32 bit) per coefficient */
+		tavil->sidetone_coeff_array[iir_idx][band_idx][idx++] =
+								(value & 0xFF);
+		tavil->sidetone_coeff_array[iir_idx][band_idx][idx++] =
+							 (value >> 8) & 0xFF;
+		tavil->sidetone_coeff_array[iir_idx][band_idx][idx++] =
+							 (value >> 16) & 0xFF;
+		tavil->sidetone_coeff_array[iir_idx][band_idx][idx++] =
+							 (value >> 24) & 0xFF;
 	}
 
 	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
@@ -5235,26 +5325,6 @@ static int tavil_iir_band_audio_mixer_put(struct snd_kcontrol *kcontrol,
 		__func__, iir_idx, band_idx,
 		get_iir_band_coeff(codec, iir_idx, band_idx, 4));
 	return 0;
-}
-
-static void tavil_restore_iir_coeff(struct tavil_priv *tavil, int iir_idx)
-{
-	int band_idx = 0, coeff_idx = 0;
-	struct snd_soc_codec *codec = tavil->codec;
-
-	for (band_idx = 0; band_idx < BAND_MAX; band_idx++) {
-		snd_soc_write(codec,
-		(WCD934X_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL + 16 * iir_idx),
-		(band_idx * BAND_MAX * sizeof(uint32_t)) & 0x7F);
-
-		for (coeff_idx = 0;
-			coeff_idx < WCD934X_CDC_SIDETONE_IIR_COEFF_MAX;
-			coeff_idx++) {
-			set_iir_band_coeff(codec, iir_idx, band_idx,
-				tavil->sidetone_coeff_array[iir_idx][band_idx]
-								[coeff_idx]);
-		}
-	}
 }
 
 static int tavil_compander_get(struct snd_kcontrol *kcontrol,
@@ -8209,8 +8279,6 @@ static int tavil_dig_core_remove_power_collapse(struct tavil_priv *tavil)
 			     WCD934X_DIG_CORE_REG_MIN,
 			     WCD934X_DIG_CORE_REG_MAX);
 
-	tavil_restore_iir_coeff(tavil, IIR0);
-	tavil_restore_iir_coeff(tavil, IIR1);
 	return 0;
 }
 
@@ -8224,6 +8292,21 @@ static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
 		return 0;
 
 	mutex_lock(&tavil->power_lock);
+#ifdef CONFIG_MACH_LGE
+	if (req_state == POWER_COLLAPSE)
+	{
+		if (tavil->power_active_ref <= 0) {
+			dev_err(tavil->dev, "%s: No power_active_ref is existed %d\n",
+				__func__,tavil->power_active_ref);
+			goto unlock_mutex;
+		}
+		tavil->power_active_ref--;
+	}
+	else if (req_state == POWER_RESUME)
+		tavil->power_active_ref++;
+	else
+		goto unlock_mutex;
+#else //QCT original
 	if (req_state == POWER_COLLAPSE)
 		tavil->power_active_ref--;
 	else if (req_state == POWER_RESUME)
@@ -8236,7 +8319,7 @@ static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
 			__func__);
 		goto unlock_mutex;
 	}
-
+#endif
 	if (req_state == POWER_COLLAPSE) {
 		if (tavil->power_active_ref == 0) {
 			schedule_delayed_work(&tavil->power_gate_work,
@@ -8778,14 +8861,41 @@ static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 		if (val & WCD934X_SLIM_IRQ_UNDERFLOW)
 			dev_err_ratelimited(tavil->dev, "%s: underflow error on %s port %d, value %x\n",
 			   __func__, (tx ? "TX" : "RX"), port_id, val);
+
+		if (tx) {
+			/* inc count */
+			if (val & WCD934X_SLIM_IRQ_OVERFLOW) {
+				tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_OF]++;
+				dev_err_ratelimited(tavil->dev, "%s: tx port(%d) overflow cnt: %d\n",
+					__func__, port_id,
+					tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_OF]);
+			}
+			if (val & WCD934X_SLIM_IRQ_UNDERFLOW) {
+				tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_UF]++;
+				dev_err_ratelimited(tavil->dev, "%s: tx port(%d) underflow cnt: %d\n",
+					__func__, port_id,
+					tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_UF]);
+			}
+		}
+
 		if ((val & WCD934X_SLIM_IRQ_OVERFLOW) ||
 			(val & WCD934X_SLIM_IRQ_UNDERFLOW)) {
 			if (!tx)
 				reg = WCD934X_SLIM_PGD_PORT_INT_RX_EN0 +
 					(port_id / 8);
-			else
+			else if ((tavil->slim_tx_of_uf_cnt[port_id]
+					[SB_PORT_ERR_OF] > SB_OF_UF_MAX_RETRY_CNT) ||
+					(tavil->slim_tx_of_uf_cnt[port_id]
+					[SB_PORT_ERR_UF] > SB_OF_UF_MAX_RETRY_CNT))
 				reg = WCD934X_SLIM_PGD_PORT_INT_TX_EN0 +
 					(port_id / 8);
+			else
+				goto skip_port_disable;
+
 			int_val = wcd9xxx_interface_reg_read(
 				tavil->wcd9xxx, reg);
 			if (int_val & (1 << (port_id % 8))) {
@@ -8794,6 +8904,7 @@ static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 					reg, int_val);
 			}
 		}
+skip_port_disable:
 		if (val & WCD934X_SLIM_IRQ_PORT_CLOSED) {
 			/*
 			 * INT SOURCE register starts from RX to TX
@@ -10070,6 +10181,15 @@ static int tavil_probe(struct platform_device *pdev)
 		goto err_cdc_reg;
 	}
 	schedule_work(&tavil->tavil_add_child_devices_work);
+
+#ifdef CONFIG_MACH_LGE
+	tavil->sar.name = "sar_backoff";
+	ret = switch_dev_register(&tavil->sar);
+	if (ret < 0) {
+		pr_err("%s : failed to register switch device for SAR backoff\n", __func__);
+		switch_dev_unregister(&tavil->sar);
+	}
+#endif
 
 	return ret;
 

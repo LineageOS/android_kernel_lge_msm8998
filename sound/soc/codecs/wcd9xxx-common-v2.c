@@ -274,6 +274,7 @@ void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
 		imped_table_ptr = imped_table;
 	}
 
+#ifndef CONFIG_MACH_LGE // QCT Original
 	/* reset = 1, which means request is to reset the register values */
 	if (reset) {
 		for (i = 0; i < MAX_IMPED_PARAMS; i++)
@@ -282,6 +283,7 @@ void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
 				imped_table_ptr[index][i].mask, 0);
 		return;
 	}
+#endif
 	index = get_impedance_index(imped);
 	if (index >= (ARRAY_SIZE(imped_index) - 1)) {
 		pr_debug("%s, impedance not in range = %d\n", __func__, imped);
@@ -292,6 +294,16 @@ void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
 			index);
 		return;
 	}
+#ifdef CONFIG_MACH_LGE // Only reset if impedance in range
+	/* reset = 1, which means request is to reset the register values */
+	if (reset) {
+		for (i = 0; i < MAX_IMPED_PARAMS; i++)
+			snd_soc_update_bits(codec,
+				imped_table_ptr[index][i].reg,
+				imped_table_ptr[index][i].mask, 0);
+		return;
+	}
+#endif
 	for (i = 0; i < MAX_IMPED_PARAMS; i++)
 		snd_soc_update_bits(codec,
 				imped_table_ptr[index][i].reg,

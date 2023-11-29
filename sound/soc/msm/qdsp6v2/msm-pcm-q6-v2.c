@@ -399,7 +399,11 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		}
 	} else {
 		ret = q6asm_open_write_with_retry(prtd->audio_client,
+#ifdef CONFIG_MACH_LGE // 24bit ASM patch
+				fmt_type, 24);
+#else
 				fmt_type, bits_per_sample);
+#endif
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_write_with_retry failed (%d)\n",
 			__func__, ret);
@@ -951,8 +955,8 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	int xfer;
 	char *bufptr;
 	void *data = NULL;
-	static uint32_t idx;
-	static uint32_t size;
+	uint32_t idx;
+	uint32_t size;
 	uint32_t offset = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = substream->runtime->private_data;
@@ -2373,6 +2377,7 @@ static int msm_pcm_channel_mixer_cfg_ctl_put(struct snd_kcontrol *kcontrol,
 		prtd = substream->runtime->private_data;
 		if (!prtd) {
 			pr_err("%s find invalid prtd fail\n", __func__);
+			mutex_unlock(&pdata->lock);
 			return -EINVAL;
 		}
 
@@ -2385,6 +2390,7 @@ static int msm_pcm_channel_mixer_cfg_ctl_put(struct snd_kcontrol *kcontrol,
 					chmixer_pspd);
 		}
 	}
+	mutex_unlock(&pdata->lock);
 done:
 	mutex_unlock(&pdata->lock);
 	return ret;

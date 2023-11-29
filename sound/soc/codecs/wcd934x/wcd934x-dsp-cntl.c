@@ -746,6 +746,7 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 	} else {
 		dev_err(cntl->codec->dev, "%s: Invalid signal_handler\n",
 			__func__);
+		panic("Panic for MIC mute debug. Please contact to Audio BSP team");
 	}
 
 	return IRQ_HANDLED;
