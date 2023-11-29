@@ -153,9 +153,8 @@ struct tx_control_param_t {
 } __packed;
 
 struct adm_tx_config_param {
-	struct adm_cmd_set_pp_params_v5     params;
-	struct adm_param_data_v5            data;
-	struct tx_control_param_t           tx_control_param;
+	struct param_hdr_v3            param_hdr;
+	struct tx_control_param_t      tx_control_param;
 } __packed;
 
 int q6adm_set_tx_cfg_parms(int port_id, struct tx_control_param_t *tx_control_param);

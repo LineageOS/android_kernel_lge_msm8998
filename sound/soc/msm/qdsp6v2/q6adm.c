@@ -1297,10 +1297,6 @@ static int adm_process_get_param_response(u32 opcode, u32 idx, u32 *payload,
 			data_size / sizeof(*adm_get_parameters);
 		pr_debug("%s: GET_PP PARAM: received parameter length: 0x%x\n",
 			 __func__, adm_get_parameters[idx]);
-#if defined(CONFIG_SND_LGE_TX_NXP_LIB)
-                pr_info("%s: GET_PP PARAM:received data->payload_size: %d, copp_idx=%d, payload[0](status)=%d, payload[1](module id)=0x%x, payload[2](param id)=0x%x, payload[3](param size)=%d\n",
-                    __func__, data->payload_size, copp_idx, payload[0], payload[1], payload[2], payload[3]);
-#endif
 		/* store params after param_size */
 		if (param_data == NULL) {
 			pr_err("%s: Invalid parameter data got!\n", __func__);
@@ -4797,7 +4793,7 @@ done:
 #if defined(CONFIG_SND_LGE_TX_NXP_LIB)
 int q6adm_set_tx_cfg_parms(int  port_id, struct tx_control_param_t *tx_control_param)
 {
-    int rc, sz;
+    int rc;
     int port_idx, copp_idx;
     struct adm_tx_config_param adm_tx_config;
 
@@ -4817,62 +4813,27 @@ int q6adm_set_tx_cfg_parms(int  port_id, struct tx_control_param_t *tx_control_p
         return -EINVAL;
     }
 
-    sz = sizeof(struct adm_tx_config_param);
+    memset(&adm_tx_config.param_hdr, 0, sizeof(adm_tx_config.param_hdr));
+    memset(&adm_tx_config.tx_control_param, 0, sizeof(adm_tx_config.tx_control_param));
 
-    adm_tx_config.params.hdr.hdr_field =
-        APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-    adm_tx_config.params.hdr.pkt_size = sz;
-    adm_tx_config.params.hdr.src_svc = APR_SVC_ADM;
-    adm_tx_config.params.hdr.src_domain = APR_DOMAIN_APPS;
-    adm_tx_config.params.hdr.src_port = port_id;
-    adm_tx_config.params.hdr.dest_svc = APR_SVC_ADM;
-    adm_tx_config.params.hdr.dest_domain = APR_DOMAIN_ADSP;
-    adm_tx_config.params.hdr.dest_port = atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
-    adm_tx_config.params.hdr.token = port_idx << 16 | copp_idx;
-    adm_tx_config.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
-
-    adm_tx_config.params.payload_addr_lsw = 0;
-    adm_tx_config.params.payload_addr_msw = 0;
-    adm_tx_config.params.mem_map_handle = 0;
-    adm_tx_config.params.payload_size = sizeof(struct adm_param_data_v5) +
-        sizeof(struct tx_control_param_t);
-
-    adm_tx_config.data.module_id = AUDIO_MODULE_AC;
-    adm_tx_config.data.param_id = AUDIO_PARAM_AC;
-    adm_tx_config.data.param_size = sizeof(struct tx_control_param_t);
-    adm_tx_config.data.reserved = 0;
-
+    adm_tx_config.param_hdr.instance_id = INSTANCE_ID_0;
+    adm_tx_config.param_hdr.module_id = AUDIO_MODULE_AC;
+    adm_tx_config.param_hdr.param_id = AUDIO_PARAM_AC;
+    adm_tx_config.param_hdr.param_size = sizeof(struct tx_control_param_t);
+    adm_tx_config.param_hdr.reserved = 0;
     adm_tx_config.tx_control_param = *tx_control_param;
 
-    pr_info("%s : param_size %d\n", __func__, adm_tx_config.data.param_size);
+    pr_info("%s : param_size %d\n", __func__, adm_tx_config.param_hdr.param_size);
 
-    atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
-    rc = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_tx_config);
-    if (rc < 0) {
-        pr_err("%s: Set params failed port = %#x\n", __func__, port_id);
-        rc = -EINVAL;
+    rc = adm_pack_and_set_one_pp_param(port_id, copp_idx, adm_tx_config.param_hdr,
+                   (uint8_t *) &adm_tx_config.tx_control_param);
 
+    if (rc)
+    {
+        pr_err("%s: Failed to set media format configuration data, err %d\n",
+               __func__, rc);
         goto fail_cmd;
     }
-
-	/* Wait for the callback */
-    rc = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
-        atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) >=0,
-        msecs_to_jiffies(TIMEOUT_MS));
-    if (!rc) {
-        pr_err("%s: Manual Gain Set params timed cut port = %#x\n", __func__, port_id);
-        rc = -EINVAL;
-
-        goto fail_cmd;
-    } else if (atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) > 0) {
-        pr_err("%s : DSP returned error[%s]\n", __func__,
-            adsp_err_get_err_str(atomic_read(&this_adm.copp.stat[port_idx][copp_idx])));
-        rc = adsp_err_get_lnx_err_code(atomic_read(&this_adm.copp.stat[port_idx][copp_idx]));
-
-        goto fail_cmd;
-    }
-
     return 0;
 
 fail_cmd :
