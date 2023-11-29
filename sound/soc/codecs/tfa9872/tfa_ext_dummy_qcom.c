@@ -31,9 +31,9 @@
  *
  */
 #define pr_fmt(fmt) "%s(): " fmt, __func__
-#include "inc/config.h"
-#include "inc/tfa_internal.h"
-#include "inc/tfa_ext.h"
+#include "config.h"
+#include "tfa_internal.h"
+#include "tfa_ext.h"
 
 #include <linux/module.h>
 

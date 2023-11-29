@@ -16,11 +16,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "inc/tfa_dsp_fw.h"
-#include "inc/dbgprint.h"
-#include "inc/NXP_I2C.h"
-#include "inc/tfa_internal.h"
-#include "inc/lxScribo.h"
+#include "tfa_dsp_fw.h"
+#include "dbgprint.h"
+#include "NXP_I2C.h"
+#include "tfa_internal.h"
+#include "lxScribo.h"
 
 /* translate a I2C driver error into an error */
 static enum tfa98xx_error tfa98xx_classify_i2c_error(enum NXP_I2C_Error i2c_error)

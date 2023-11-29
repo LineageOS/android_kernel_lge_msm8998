@@ -1,4 +1,3 @@
-ifeq ($(CONFIG_SND_SOC_TFA9872), y)
 # NXP audio amplifier - TFA9872
 
 TFA_DEBUG                =1
@@ -7,9 +6,9 @@ TFA_DISABLED_CODE        =1
 TFADSP_DEBUG             =1
 TFA_VERSION              =tfa9872
 TFADSP_32BITS            =1
+TFADSP_DSP_MSG_BUFFERING =0
 TFADSP_DSP_MSG_APR_PACKET_STRATEGY=1
 TFADSP_DSP_BUFFER_POOL=1
-TFA_EXCEPTION_AT_OVERLAP_WITH_SAAM=1
 TFA_SOFTDSP              =1
 TFA_SRC_DIR              =sound/soc/codecs/$(TFA_VERSION)
 TFA98XX_FLAGS           := -DUSE_TFA9872
@@ -24,14 +23,14 @@ endif
 ifdef TFADSP_32BITS
 ccflags-y               += -DTFADSP_32BITS
 endif
+ifdef TFADSP_DSP_MSG_BUFFERING
+#ccflags-y               += -DTFADSP_DSP_MSG_BUFFERING
+endif
 ifdef TFADSP_DSP_MSG_APR_PACKET_STRATEGY
 ccflags-y               += -DTFADSP_DSP_MSG_APR_PACKET_STRATEGY
 endif
 ifdef TFADSP_DSP_BUFFER_POOL
 ccflags-y               += -DTFADSP_DSP_BUFFER_POOL
-endif
-ifdef TFA_EXCEPTION_AT_OVERLAP_WITH_SAAM
-ccflags-y               += -DTFA_FORCE_TO_STOP_RAM_AT_OVERLAPPED_OUTPUT
 endif
 ifdef TFA_SOFTDSP
 ccflags-y               += -DTFA_SOFTDSP
@@ -75,4 +74,3 @@ endif
 
 # built-in driver
 obj-y	+= snd-soc-tfa98xx.o
-endif

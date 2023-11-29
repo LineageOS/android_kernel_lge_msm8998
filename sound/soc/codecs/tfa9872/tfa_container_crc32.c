@@ -5,7 +5,7 @@
  *
  */
 
-#include "inc/config.h"
+#include "config.h"
 
 /*-
  *  COPYRIGHT (C) 1986 Gary S. Brown.  You may use this program, or

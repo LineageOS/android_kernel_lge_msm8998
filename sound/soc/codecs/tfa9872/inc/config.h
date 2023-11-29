@@ -83,9 +83,6 @@ struct tfa98xx {
 	struct delayed_work interrupt_work;
 	struct delayed_work tapdet_work;
 	struct mutex dsp_lock;
-#ifdef CONFIG_SND_LGE_TX_NXP_LIB
-	char edev_name[15];
-#endif
 	int dsp_init;
 	int dsp_fw_state;
 	int sysclk;
@@ -102,12 +99,6 @@ struct tfa98xx {
 	int pstream;
 	int cstream;
 	int samstream;
-#if defined(TFA_FORCE_TO_STOP_RAM_AT_OVERLAPPED_OUTPUT)
-	// to store skipped streams,
-	// when p/cstream is ignored, overlapped with samstream
-	int ignored_pstream;
-	int ignored_cstream;
-#endif
 	struct input_dev *input;
 	bool tapdet_enabled;		/* service enabled */
 	bool tapdet_open;		/* device file opened */

@@ -812,9 +812,6 @@ enum tfa98xx_error tfa_dsp_msg(tfa98xx_handle_t handle, int length, const char *
  * The wrapper functions to call the dsp msg, register and memory function for tfa or probus
  */
 enum tfa98xx_error dsp_msg(tfa98xx_handle_t handle, int length, const char *buf);
-#if defined(TFADSP_DSP_MSG_APR_PACKET_STRATEGY)
-enum tfa98xx_error dsp_msg_packet(tfa98xx_handle_t handle, uint8_t *blob, int tfadsp_buf_size);
-#endif
 enum tfa98xx_error dsp_msg_read(tfa98xx_handle_t handle, int length, unsigned char *bytes);
 enum tfa98xx_error reg_write(tfa98xx_handle_t handle, unsigned char subaddress, unsigned short value);
 enum tfa98xx_error reg_read(tfa98xx_handle_t handle, unsigned char subaddress, unsigned short *value);
@@ -1067,8 +1064,6 @@ int tfa_get_swvstep(tfa98xx_handle_t handle);
 int tfa_set_swvstep(tfa98xx_handle_t handle, unsigned short new_value);
 
 int tfa_is_cold(tfa98xx_handle_t handle);
-
-int tfa_is_cold_amp(tfa98xx_handle_t handle);
 
 int tfa_cf_enabled(tfa98xx_handle_t handle);
 

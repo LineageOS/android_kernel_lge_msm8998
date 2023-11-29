@@ -1,4 +1,4 @@
-#include "inc/config.h"
+#include "config.h"
 
 #if (defined(WIN32) || defined(_X64))
 #include <windows.h>
@@ -6,7 +6,7 @@
 #include <unistd.h>
 #endif
 
-#include "inc/tfa_internal.h"
+#include "tfa_internal.h"
 
 void *kmalloc(size_t size, gfpt_t flags)
 {
