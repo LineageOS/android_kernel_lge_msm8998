@@ -85,9 +85,17 @@ struct pl_data *the_chip;
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
+#ifdef CONFIG_LGE_PM_DEBUG
+	PR_LGE = BIT(1),
+#endif
+
 };
 
+#ifdef CONFIG_LGE_PM_DEBUG
+static int debug_mask = PR_LGE;
+#else
 static int debug_mask;
+#endif
 module_param_named(debug_mask, debug_mask, int, S_IRUSR | S_IWUSR);
 
 #define pl_dbg(chip, reason, fmt, ...)				\
@@ -104,6 +112,9 @@ enum {
 	RESTRICT_CHG_ENABLE,
 	RESTRICT_CHG_CURRENT,
 };
+#ifdef CONFIG_LGE_PM
+static bool is_batt_available(struct pl_data *chip);
+#endif
 
 /*******
  * ICL *
@@ -389,6 +400,9 @@ done:
 /*********
  *  FCC  *
 **********/
+#ifdef CONFIG_LGE_PM
+#define PMI_FCC_MIN_UA	700000
+#endif
 #define EFFICIENCY_PCT	80
 #define FCC_STEP_SIZE_UA 100000
 #define FCC_STEP_UPDATE_DELAY_MS 1000
@@ -400,6 +414,9 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	int rc, effective_total_ua, slave_limited_ua, hw_cc_delta_ua = 0,
 		icl_ua, adapter_uv, bcl_ua;
 	union power_supply_propval pval = {0, };
+#ifdef CONFIG_LGE_PM_DEBUG
+	static int pre_total_ua, pre_slave_pct, pre_taper_pct, pre_bcl_ua;
+#endif
 
 	rc = power_supply_get_property(chip->main_psy,
 			       POWER_SUPPLY_PROP_FCC_DELTA, &pval);
@@ -433,6 +450,12 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
 	slave_limited_ua = min(effective_total_ua, bcl_ua);
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
+#ifdef CONFIG_LGE_PM
+	*slave_ua=*slave_ua/25000*25000;
+#else
+	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
+#endif
+
 	/*
 	 * In USBIN_USBIN configuration with internal rsense parallel
 	 * charger's current goes through main charger's BATFET, keep
@@ -443,7 +466,32 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	else
 		*master_ua = max(0, total_ua - *slave_ua);
 
-	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
+#ifdef CONFIG_LGE_PM
+	if (chip->pl_mode == POWER_SUPPLY_PL_USBMID_USBMID) {
+		if (total_ua > PMI_FCC_MIN_UA && *master_ua < PMI_FCC_MIN_UA) {
+			*master_ua = PMI_FCC_MIN_UA;
+			*slave_ua  = max(0, total_ua - *master_ua);
+		}
+	}
+#endif
+
+#ifdef CONFIG_LGE_PM_DEBUG
+	if (total_ua != pre_total_ua
+			||chip->slave_pct != pre_slave_pct
+			||chip->taper_pct != pre_taper_pct
+			||bcl_ua <= pre_bcl_ua*90/100
+			||bcl_ua >= pre_bcl_ua*110/100) {
+		pre_total_ua = total_ua;
+		pre_slave_pct = chip->slave_pct;
+		pre_taper_pct = chip->taper_pct;
+		pre_bcl_ua = bcl_ua;
+
+		pl_dbg(chip, PR_LGE, "T[%d], M[%d], S[%d], limit[%d] => (hw_cc[%d], bcl [%d]) x %d x %d\n",
+				total_ua/1000, *master_ua/1000, *slave_ua/1000, slave_limited_ua/1000,
+				hw_cc_delta_ua/1000, bcl_ua/1000, chip->slave_pct, chip->taper_pct);
+	}
+#endif
+
 }
 
 static void get_fcc_step_update_params(struct pl_data *chip, int main_fcc_ua,
@@ -842,6 +890,10 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	bool rerun_aicl = false;
+#ifdef CONFIG_LGE_PM
+	union power_supply_propval val = {0, };
+	bool is_inov_working = false;
+#endif
 
 	if (!chip->main_psy)
 		return 0;
@@ -881,9 +933,34 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 		return rc;
 	}
 
+#ifdef CONFIG_LGE_PM
+	if (!is_batt_available(chip))
+		return 0;
+
+	/* get the die health current */
+	rc = power_supply_get_property(chip->batt_psy,
+				   POWER_SUPPLY_PROP_DIE_HEALTH,
+				   &val);
+	if (rc < 0) {
+		pr_err("Couldn't get aicl settled value rc=%d\n", rc);
+		return rc;
+	}
+
+	if (val.intval == POWER_SUPPLY_HEALTH_HOT || val.intval == POWER_SUPPLY_HEALTH_OVERHEAT)
+		is_inov_working = true;
+
+	/* rerun AICL if new ICL is above settled ICL */
+	if (icl_ua != INT_MAX &&
+			!is_client_vote_enabled_locked(votable, "PD_VOTER") &&
+			!is_client_vote_enabled_locked(votable, "USBIN_USBIN_BOOST_VOTER") &&
+			!is_inov_working &&
+			icl_ua > pval.intval)
+		rerun_aicl = true;
+#else
 	/* rerun AICL if new ICL is above settled ICL */
 	if (icl_ua > pval.intval)
 		rerun_aicl = true;
+#endif
 
 	if (rerun_aicl) {
 		/* set a lower ICL */
@@ -936,12 +1013,23 @@ static int pl_disable_vote_callback(struct votable *votable,
 	chip->total_settled_ua = 0;
 	chip->pl_settled_ua = 0;
 
+#ifdef CONFIG_LGE_PM
+	if (!chip->pl_psy)
+		pr_err("pl_psy is NULL skip cancel work\n");
+	else
+#endif
 	/* Cancel FCC step change work */
 	cancel_delayed_work_sync(&chip->fcc_step_update_work);
 
 	if (!pl_disable) { /* enable */
+#ifdef CONFIG_LGE_PM
+		if (!chip->pl_psy)
+			pr_err("pl_psy is NULL skip cancel work\n");
+		else
+#endif
 		/* keep system awake to talk to slave charger through i2c */
 		cancel_delayed_work_sync(&chip->pl_awake_work);
+
 		if (chip->pl_awake_votable)
 			vote(chip->pl_awake_votable, PL_VOTER, true, 0);
 
@@ -972,6 +1060,16 @@ static int pl_disable_vote_callback(struct votable *votable,
 				pr_err("Couldn't change slave suspend state rc=%d\n",
 					rc);
 
+#ifdef CONFIG_LGE_PM
+		if (chip->batt_psy) {
+			pval.intval = 1;
+			rc = power_supply_set_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_PARALLEL_BATFET_EN, &pval);
+			if (rc < 0)
+				pr_err("Couldn't change parallel batfet enable\n");
+		}
+#endif
+
 			if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN) ||
 				(chip->pl_mode ==
 				POWER_SUPPLY_PL_USBIN_USBIN_EXT))
@@ -981,6 +1079,21 @@ static int pl_disable_vote_callback(struct votable *votable,
 		 * we could have been enabled while in taper mode,
 		 *  start the taper work if so
 		 */
+#ifdef CONFIG_LGE_PM
+		if (chip->batt_psy) {
+			rc = power_supply_get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+			if (rc < 0) {
+				pr_err("Couldn't get batt charge type rc=%d\n", rc);
+			} else {
+				if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+					pl_dbg(chip, PR_PARALLEL,
+						"pl enabled in Taper scheduing work\n");
+					schedule_delayed_work(&chip->pl_taper_work, 0);
+				}
+			}
+		}
+#else
 		rc = power_supply_get_property(chip->batt_psy,
 				       POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 		if (rc < 0) {
@@ -992,7 +1105,21 @@ static int pl_disable_vote_callback(struct votable *votable,
 				schedule_delayed_work(&chip->pl_taper_work, 0);
 			}
 		}
+#endif
 	} else {
+#ifdef CONFIG_LGE_PM
+		if (chip->batt_psy) {
+			rc = power_supply_get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_FAST_PARALLEL_ENABLE, &pval);
+			if (rc < 0) {
+				pr_err("Couldn't get fast parallel enable rc=%d\n", rc);
+			} else {
+				if (pval.intval == 1) {
+					return rc;
+				}
+			}
+		}
+#endif
 		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
 			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			split_settled(chip);
@@ -1009,13 +1136,30 @@ static int pl_disable_vote_callback(struct votable *votable,
 			}
 		}
 
+#ifdef CONFIG_LGE_PM
+		if (chip->batt_psy) {
+			pval.intval = 0;
+			rc = power_supply_set_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_PARALLEL_BATFET_EN, &pval);
+			if (rc < 0)
+				pr_err("Couldn't change parallel batfet disable\n");
+		}
+#endif
+
 		rerun_election(chip->fcc_votable);
 		rerun_election(chip->fv_votable);
 
+#ifdef CONFIG_LGE_PM
+		if (!chip->pl_psy)
+			pr_err("pl_psy is NULL skip cancel work\n");
+		else
+#endif
 		cancel_delayed_work_sync(&chip->pl_awake_work);
+
 		if (chip->pl_awake_votable)
 			schedule_delayed_work(&chip->pl_awake_work,
 							msecs_to_jiffies(5000));
+
 	}
 
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
@@ -1362,6 +1506,7 @@ int qcom_batt_init(void)
 	chip->fv_votable = create_votable("FV", VOTE_MIN,
 					pl_fv_vote_callback,
 					chip);
+
 	if (IS_ERR(chip->fv_votable)) {
 		rc = PTR_ERR(chip->fv_votable);
 		goto destroy_votable;
