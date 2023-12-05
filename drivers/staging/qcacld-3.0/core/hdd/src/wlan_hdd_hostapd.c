@@ -3413,6 +3413,23 @@ static __iw_softap_setparam(struct net_device *dev,
 		ret = wma_cli_set_command(pHostapdAdapter->sessionId,
 					  WMA_VDEV_TXRX_FWSTATS_ENABLE_CMDID,
 					  set_value, VDEV_CMD);
+// [LGE_CHANGE_S] 2017.04.26, neo-wifi@lge.com, Add Reset Command for KPI log
+#ifdef FEATURE_SUPPORT_LGE
+        ret = wma_cli_set_command(pHostapdAdapter->sessionId,
+                      WMA_VDEV_TXRX_FWSTATS_RESET_CMDID,
+                      set_value, VDEV_CMD);
+        {
+extern int wlan_hdd_get_sap_stats(hdd_adapter_t *adapter, struct station_info *info);
+
+            hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR(dev);
+            struct station_info info;
+
+            if (pAdapter->device_mode == QDF_SAP_MODE) {
+                wlan_hdd_get_sap_stats(pAdapter, &info);
+            }
+        }
+#endif
+// [LGE_CHANGE_E] 2017.04.26, neo-wifi@lge.com, Add Reset Command for KPI log
 		break;
 	}
 	/* Firmware debug log */

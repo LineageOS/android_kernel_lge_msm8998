@@ -5867,6 +5867,13 @@ struct reg_table_entry g_registry_table[] = {
 		     CFG_NB_COMMANDS_RATE_LIMIT_DEFAULT,
 		     CFG_NB_COMMANDS_RATE_LIMIT_MIN,
 		     CFG_NB_COMMANDS_RATE_LIMIT_MAX),
+
+	REG_VARIABLE(CFG_IGNORE_FW_REG_OFFLOAD_IND, WLAN_PARAM_Integer,
+		     struct hdd_config, ignore_fw_reg_offload_ind,
+		     VAR_FLAGS_OPTIONAL,
+		     CFG_IGNORE_FW_REG_OFFLOAD_IND_DEFAULT,
+		     CFG_IGNORE_FW_REG_OFFLOAD_IND_MIN,
+		     CFG_IGNORE_FW_REG_OFFLOAD_IND_MAX),
 };
 
 /**
@@ -7962,6 +7969,10 @@ void hdd_cfg_print(hdd_context_t *pHddCtx)
 	hdd_cfg_print_thermal_config(pHddCtx);
 	hdd_debug("Name = [%s] value = [%d]",
 		  CFG_DISABLE_4WAY_HS_OFFLOAD, pHddCtx->config->disable_4way_hs_offload);
+
+	hdd_debug("Name = [%s] Value = [%u]",
+		  CFG_IGNORE_FW_REG_OFFLOAD_IND,
+		  hdd_ctx->config->ignore_fw_reg_offload_ind);
 }
 
 /**
