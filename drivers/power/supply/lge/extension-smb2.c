@@ -569,7 +569,6 @@ static enum power_supply_property extension_battery_appended [] = {
 	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
 	POWER_SUPPLY_PROP_RESTRICTED_CHARGING,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
-	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 };
 
 static int extension_battery_get_property_pre(struct power_supply *psy,
@@ -617,9 +616,6 @@ static int extension_battery_get_property_pre(struct power_supply *psy,
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT :
 		val->intval = get_effective_result(charger->fcc_votable);
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED :
-		val->intval = !get_effective_result(charger->chg_disable_votable);
 		break;
 
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY :
@@ -713,10 +709,6 @@ static int extension_battery_set_property_pre(struct power_supply *psy,
 		snprintf(buf, sizeof(buf), "%d", chgstep);
 		unified_nodes_store("charging_step", buf, strlen(buf));
 	}	break;
-
-	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED :
-		vote(charger->chg_disable_votable, USER_VOTER, (bool)!val->intval, 0);
-		break;
 
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE :
 		rc = safety_timer_enable(charger, !!val->intval);
@@ -826,7 +818,6 @@ int extension_battery_property_is_writeable(struct power_supply *psy,
 	switch (prp) {
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY :
 	case POWER_SUPPLY_PROP_RESTRICTED_CHARGING :
-	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
 		rc = 1;
 		break;
 	default:
