@@ -550,6 +550,27 @@ config LGE_PM_SUPPORT_LG_POWER_CLASS
 	help
 	  Support lge power class for charging scenario on LGE
 
+config LGE_PM_LGE_POWER_CORE
+	bool "Apply LGE Power Core"
+	depends on LGE_PM
+	default n
+	help
+	  Say Y here enable support lge power core
+
+config LGE_PM_LGE_POWER_CLASS_CABLE_DETECT
+	tristate "cable detec driver"
+	depends on LGE_PM_LGE_POWER_CORE
+	default n
+	help
+	  Say Y here enable support cable detect
+
+config LGE_PM_LGE_POWER_CLASS_CHARGING_CONTROLLER
+	tristate "LGE charging controller driver for LG Power Class"
+	depends on LGE_PM_LGE_POWER_CORE
+	default n
+	help
+	  Say Y here enable support charging controller for LG Power Class
+
 config LGE_PM_BATT_MANAGER
 	tristate "LGE battery management feature"
 	default n

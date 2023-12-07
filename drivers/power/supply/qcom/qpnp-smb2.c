@@ -1249,7 +1249,6 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
-	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PARALLEL_BATFET_EN,
 	POWER_SUPPLY_PROP_FAST_PARALLEL_ENABLE,
 #endif
@@ -1379,9 +1378,6 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
 		val->intval = chg->safety_timer_en;
-		break;
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = (get_client_vote(chg->usb_icl_votable, USER_VOTER) != 0);
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_BATFET_EN:
 		/* not used parameter */
@@ -1536,9 +1532,6 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
 		rc = smblib_set_prop_safety_timer_enabled(chg, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		vote(chg->usb_icl_votable, USER_VOTER, (bool)!val->intval, 0);
-		break;
 	case POWER_SUPPLY_PROP_PARALLEL_BATFET_EN:
 		if (gpio_is_valid(chg->smb_bat_en))
 			rc = smblib_set_prop_parallel_batfet_en(chg, val);
@@ -1659,7 +1652,6 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 #ifdef CONFIG_LGE_PM
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_PARALLEL_BATFET_EN:
 	case POWER_SUPPLY_PROP_FAST_PARALLEL_ENABLE:
 #endif

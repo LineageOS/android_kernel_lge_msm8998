@@ -10,3 +10,4 @@ obj-$(CONFIG_LGE_QSDL_SUPPORT) += lge_qsdl.o
 obj-$(CONFIG_LGE_QFPROM_INTERFACE) += lge_qfprom_access.o
 obj-$(CONFIG_LGE_PKM) += lge_pkm_drv.o
 obj-$(CONFIG_LGE_PAY_MME) += lge_mme_drv.o
+obj-$(CONFIG_LGE_PM_LGE_POWER_CORE)		+= lge_power_class_core.o lge_power_class_sysfs.o

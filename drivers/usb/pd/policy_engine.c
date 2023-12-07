@@ -4850,7 +4850,7 @@ static int pd_set_input_suspend(struct usbpd *pd, bool enable)
 	usbpd_info(&pd->dev,"[moisture] %s: set %d\n", __func__, enable);
 	pval.intval = enable;
 
-	return power_supply_set_property(psy, POWER_SUPPLY_PROP_MOISTURE_DETECTION, &pval);
+	return power_supply_set_property(psy, POWER_SUPPLY_PROP_MOISTURE_DETECTED, &pval);
 }
 /*
 static int pd_get_input_suspend(void)
@@ -4888,7 +4888,7 @@ static int pd_get_is_ocp(struct usbpd *pd)
 {
 	union power_supply_propval pval = {0, };
 
-	power_supply_get_property(pd->usb_psy, POWER_SUPPLY_PROP_TYPEC_IS_OCP, &pval);
+	power_supply_get_property(pd->usb_psy, POWER_SUPPLY_PROP_IS_OCP, &pval);
 
 	return pval.intval;
 }

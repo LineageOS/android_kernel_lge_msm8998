@@ -183,10 +183,11 @@ static int __init boot_cable_setup(char *boot_cable)
                 boot_cable_type = NONE_INIT_CABLE;
         else
                 boot_cable_type = NONE_INIT_CABLE;
-
+/*
 #ifdef CONFIG_LGE_PM
 	unified_bootmode_cable(boot_cable);
 #endif
+*/
         pr_info("Boot cable : %s %d\n", boot_cable, boot_cable_type);
 
         return 1;
@@ -223,10 +224,11 @@ int __init lge_boot_mode_init(char *s)
 		lge_boot_mode = LGE_BOOT_MODE_MINIOS;
 	pr_info("ANDROID BOOT MODE : %d %s\n", lge_boot_mode, s);
 	/* LGE_UPDATE_E for MINIOS2.0 */
-
+/*
 #ifdef CONFIG_LGE_PM
 	unified_bootmode_android(s);
 #endif
+*/
 	return 1;
 }
 __setup("androidboot.mode=", lge_boot_mode_init);

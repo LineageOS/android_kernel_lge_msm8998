@@ -21,7 +21,7 @@
 #include <soc/qcom/smem.h>
 #endif
 #ifdef CONFIG_LGE_PM_LGE_POWER_CLASS_CABLE_DETECT
-#include <soc/qcom/lge/power/lge_cable_detect.h>
+#include <soc/qcom/lge/board_lge.h>
 #else
 #endif
 #include <linux/power/lge_battery_id.h>

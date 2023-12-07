@@ -63,6 +63,7 @@ enum pon_restart_reason {
 	/* 32 ~ 63 for OEMs/ODMs secific features */
 	PON_RESTART_REASON_OEM_MIN		= 0x20,
 	PON_RESTART_REASON_OEM_MAX		= 0x3f,
+
 #ifdef CONFIG_MACH_LGE
 	/* sync with QcomModulePkg/Include/Library/ShutdownServices.h */
 	PON_RESTART_REASON_NORMAL		= 0x20,
@@ -78,7 +79,8 @@ enum pon_restart_reason {
 	PON_RESTART_REASON_LAF_DLOAD_MTP	= 0x2A,
 	PON_RESTART_REASON_LAF_DLOAD_TETHER	= 0x2B,
 	PON_RESTART_REASON_XBOOT_AAT_WRITE	= 0x2C,
-	PON_RESTART_REASON_SHIP_MODE		= 0x31,
+	PON_RESTART_REASON_SHIP_MODE		= 0x2D,
+	PON_RESTART_REASON_OPID_MISMATCHED	= 0x2E,
 #endif
 };
 

@@ -29,7 +29,7 @@
 #include <soc/qcom/lge/power/lge_power_class.h>
 #endif
 #ifdef CONFIG_LGE_PM
-#include <soc/qcom/lge/power/lge_board_revision.h>
+//#include <soc/qcom/lge/power/lge_board_revision.h>
 #include <soc/qcom/lge/board_lge.h>
 #include <linux/of_gpio.h>
 #include <soc/qcom/smem.h>

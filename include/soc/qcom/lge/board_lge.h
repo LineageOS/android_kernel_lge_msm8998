@@ -106,6 +106,25 @@ typedef enum {
 	NONE_INIT_CABLE
 } cable_boot_type;
 
+typedef enum {
+	CABLE_ADC_NO_INIT = 0,
+	CABLE_ADC_MHL_1K,
+	CABLE_ADC_U_28P7K,
+	CABLE_ADC_28P7K,
+	CABLE_ADC_56K,
+	CABLE_ADC_100K,
+	CABLE_ADC_130K,
+	CABLE_ADC_180K,
+	CABLE_ADC_200K,
+	CABLE_ADC_220K,
+	CABLE_ADC_270K,
+	CABLE_ADC_330K,
+	CABLE_ADC_620K,
+	CABLE_ADC_910K,
+	CABLE_ADC_NONE,
+	CABLE_ADC_MAX,
+} cable_adc_type;
+
 cable_boot_type lge_get_boot_cable(void);
 lge_boot_mode_t lge_get_boot_mode(void);
 bool lge_get_factory_boot(void);
