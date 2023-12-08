@@ -14,14 +14,15 @@ fi
 
 # make .config
 env KCONFIG_NOTIMESTAMP=true \
-make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- ${DEFCONFIG_FILE}
+make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- ${DEFCONFIG_FILE}
 
 # run menuconfig
 env KCONFIG_NOTIMESTAMP=true \
-make menuconfig ARCH=arm64
+make O=out menuconfig ARCH=arm64
 
-make savedefconfig ARCH=arm64
+make O=out savedefconfig ARCH=arm64
 # copy .config to defconfig
-mv defconfig arch/arm64/configs/${DEFCONFIG_FILE}
+mv out/defconfig arch/arm64/configs/${DEFCONFIG_FILE}
 # clean kernel object
-make mrproper
+#make mrproper
+rm -rf out
