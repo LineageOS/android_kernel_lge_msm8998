@@ -419,7 +419,7 @@ static void frequency_process(struct work_struct *work)
 		goto exit;
 	if(!platform_data->notify_info.enable)
 		goto exit;
-	if(!platform_data->state & RUNNING)
+	if((!platform_data->state) & RUNNING)
 		goto exit;
 	dst_cpu = get_dst_cpu(platform_data->notify_info.cur_policy, &cl);
 	if(dst_cpu < 0) {
