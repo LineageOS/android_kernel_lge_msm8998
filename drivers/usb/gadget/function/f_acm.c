@@ -822,32 +822,6 @@ static void acm_free_func(struct usb_function *f)
 	kfree(acm);
 }
 
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-static int acm_set_mac_os(struct usb_function *f)
-{
-	struct usb_composite_dev *cdev = f->config->cdev;
-	struct usb_interface_descriptor *desc;
-
-	desc = (struct usb_interface_descriptor *)f->fs_descriptors[1];
-	desc->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
-
-	if (f->hs_descriptors && gadget_is_dualspeed(cdev->gadget)) {
-		desc = (struct usb_interface_descriptor *)f->hs_descriptors[1];
-		desc->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
-	}
-
-	if (f->ss_descriptors && gadget_is_superspeed(cdev->gadget)) {
-		desc = (struct usb_interface_descriptor *)f->ss_descriptors[1];
-		desc->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
-	}
-
-	DBG(cdev, "MAC OS ACM bInterfaceClass change to %u\n",
-	     USB_CLASS_VENDOR_SPEC);
-
-	return 0;
-}
-#endif
-
 static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 {
 	struct f_serial_opts *opts;
@@ -882,9 +856,6 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port_num = opts->port_num;
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-	acm->port.func.set_mac_os = acm_set_mac_os;
-#endif
 
 	return &acm->port.func;
 }

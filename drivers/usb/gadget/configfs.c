@@ -567,16 +567,6 @@ static int config_usb_cfg_link(
 		goto out;
 	}
 
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-	if (f->multi_config_support) {
-		f = kmemdup(f, sizeof(*f), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(f)) {
-			ret = -ENOMEM;
-			goto out;
-		}
-	}
-#endif
-
 	/* stash the function until we bind it to the gadget */
 	list_add_tail(&f->list, &cfg->func_list);
 	ret = 0;
@@ -600,9 +590,6 @@ static int config_usb_cfg_unlink(
 	struct usb_function_instance *fi = container_of(group,
 			struct usb_function_instance, group);
 	struct usb_function *f;
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-	bool multi_config_support;
-#endif
 
 	/*
 	 * ideally I would like to forbid to unlink functions while a gadget is
@@ -623,17 +610,8 @@ static int config_usb_cfg_unlink(
 
 	list_for_each_entry(f, &cfg->func_list, list) {
 		if (f->fi == fi) {
-
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-			multi_config_support = f->multi_config_support;
-#endif
 			list_del(&f->list);
 			usb_put_function(f);
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-			if (multi_config_support) {
-				kfree(f);
-			}
-#endif
 			mutex_unlock(&gi->lock);
 			return 0;
 		}
@@ -1422,16 +1400,6 @@ static void purge_configs_funcs(struct gadget_info *gi)
 						" '%s'/%pK\n", f->name, f);
 				f->unbind(c, f);
 			}
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-			if (f->multi_config_support) {
-				if (f->fs_descriptors)
-					usb_free_descriptors(f->fs_descriptors);
-				if (f->hs_descriptors)
-					usb_free_descriptors(f->hs_descriptors);
-				if (f->ss_descriptors)
-					usb_free_descriptors(f->ss_descriptors);
-			}
-#endif
 		}
 		c->next_interface_id = 0;
 		memset(c->interface, 0, sizeof(c->interface));
@@ -1573,19 +1541,6 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 				list_add(&f->list, &cfg->func_list);
 				goto err_purge_funcs;
 			}
-#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
-			if (f->multi_config_support) {
-				if (f->fs_descriptors)
-					f->fs_descriptors =
-						usb_copy_descriptors(f->fs_descriptors);
-				if (f->hs_descriptors)
-					f->hs_descriptors =
-						usb_copy_descriptors(f->hs_descriptors);
-				if (f->ss_descriptors)
-					f->ss_descriptors =
-						usb_copy_descriptors(f->ss_descriptors);
-			}
-#endif
 		}
 		usb_ep_autoconfig_reset(cdev->gadget);
 	}
