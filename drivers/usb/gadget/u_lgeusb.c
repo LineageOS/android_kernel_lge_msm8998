@@ -25,13 +25,6 @@
 #include <soc/qcom/lge/board_lge.h>
 #endif
 
-#ifdef CONFIG_LGE_USB_GADGET_AUTORUN
-static char model_string[32];
-static char swver_string[32];
-static char subver_string[32];
-static char phoneid_string[32];
-#endif
-
 #define LGEUSB_STRING_ATTR(field, buffer)				\
 static ssize_t								\
 field ## _show(struct device *dev, struct device_attribute *attr,	\
@@ -52,64 +45,9 @@ field ## _store(struct device *dev, struct device_attribute *attr,	\
 }									\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
-#ifdef CONFIG_LGE_USB_GADGET_AUTORUN
-LGEUSB_STRING_ATTR(model_name, model_string)
-LGEUSB_STRING_ATTR(sw_version, swver_string)
-LGEUSB_STRING_ATTR(sub_version, subver_string)
-LGEUSB_STRING_ATTR(phone_id, phoneid_string)
-#endif
-
-	static struct device_attribute *lgeusb_attributes[] = {
-#ifdef CONFIG_LGE_USB_GADGET_AUTORUN
-		&dev_attr_model_name,
-		&dev_attr_sw_version,
-		&dev_attr_sub_version,
-		&dev_attr_phone_id,
-#endif
-		NULL
-	};
-
-#ifdef CONFIG_LGE_USB_GADGET_AUTORUN
-int lgeusb_get_model_name(char *model, size_t size)
-{
-	if (!model)
-		return -EINVAL;
-
-	strlcpy(model, model_string, size);
-	pr_info("lgeusb: model name %s\n", model);
-	return 0;
-}
-
-int lgeusb_get_phone_id(char *phoneid, size_t size)
-{
-	if (!phoneid)
-		return -EINVAL;
-
-	strlcpy(phoneid, phoneid_string, size);
-	pr_info("lgeusb: phoneid %s\n", phoneid);
-	return 0;
-}
-
-int lgeusb_get_sw_ver(char *sw_ver, size_t size)
-{
-	if (!sw_ver)
-		return -EINVAL;
-
-	strlcpy(sw_ver, swver_string, size);
-	pr_info("lgeusb: sw version %s\n", sw_ver);
-	return 0;
-}
-
-int lgeusb_get_sub_ver(char *sub_ver, size_t size)
-{
-	if (!sub_ver)
-		return -EINVAL;
-
-	strlcpy(sub_ver, subver_string, size);
-	pr_info("lgeusb: sw sub version %s\n", sub_ver);
-	return 0;
-}
-#endif
+static struct device_attribute *lgeusb_attributes[] = {
+	NULL
+};
 
 static int lgeusb_probe(struct platform_device *pdev)
 {

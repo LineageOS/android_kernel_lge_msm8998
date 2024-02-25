@@ -19,11 +19,4 @@
 #define LGE_USB_VID		0x1004
 #define LGE_USB_FACTROY_PID	0x6000
 
-#ifdef CONFIG_LGE_USB_GADGET_AUTORUN
-int lgeusb_get_model_name(char *, size_t);
-int lgeusb_get_phone_id(char *, size_t);
-int lgeusb_get_sw_ver(char *, size_t);
-int lgeusb_get_sub_ver(char *, size_t);
-#endif
-
 #endif /* __U_LGEUSB_H__ */
