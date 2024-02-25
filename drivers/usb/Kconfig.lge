@@ -7,7 +7,6 @@ if USB_GADGET
 config LGE_USB_GADGET
 	boolean "LGE USB Gadget Support"
 	depends on USB_GADGET
-	select LGE_USB_GADGET_MULTI_CONFIG
 	select USB_CONFIGFS_NCM
 	select USB_CONFIGFS_RNDIS
 	select LGE_USB_CONFIGFS_LAF
