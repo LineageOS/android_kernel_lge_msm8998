@@ -256,9 +256,6 @@ static const char fsg_string_interface[] = "Mass Storage";
 #define TYPE_MOD_CHG_TO_TET     0x09
 #define TYPE_MOD_CHG_TO_FDG     0x0A
 #define TYPE_MOD_CHG_TO_PTP     0x0B
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-#define TYPE_MOD_CHG_TO_MUL     0x0C
-#endif
 #define TYPE_MOD_CHG_TO_MIDI    0x0D
 #define TYPE_MOD_CHG2_TO_ACM    0x81
 #define TYPE_MOD_CHG2_TO_UMS    0x82
@@ -268,9 +265,6 @@ static const char fsg_string_interface[] = "Mass Storage";
 #define TYPE_MOD_CHG2_TO_TET    0x87
 #define TYPE_MOD_CHG2_TO_FDG    0x88
 #define TYPE_MOD_CHG2_TO_PTP    0x89
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-#define TYPE_MOD_CHG2_TO_MUL    0x8A
-#endif
 #define TYPE_MOD_CHG2_TO_MIDI   0x8B
 /* ACK TO SEND HOST PC */
 #define ACK_STATUS_TO_HOST      0x10
@@ -285,12 +279,6 @@ static const char fsg_string_interface[] = "Mass Storage";
 #define SUB_ACK_STATUS_CGO      0x04
 #define SUB_ACK_STATUS_TET      0x05
 #define SUB_ACK_STATUS_PTP      0x06
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-/*For multiple configuration, but actually ISO don't know this.
- *TODO : Need to clear this interface.
- */
-#define SUB_ACK_STATUS_MUL      0x07
-#endif
 #define SUB_ACK_STATUS_MIDI     0x08
 #endif /* CONFIG_LGE_USB_GADGET_AUTORUN */
 
@@ -318,9 +306,6 @@ static char *envp_mode[][2] = {
 	{"AUTORUN=change_ptp", NULL},
 	{"AUTORUN=query_value", NULL},
 	{"AUTORUN=device_info", NULL},
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-	{"AUTORUN=change_mul", NULL},
-#endif
 	{"AUTORUN=change_midi", NULL},
 };
 #endif
@@ -337,9 +322,6 @@ enum chg_mode_state {
 	MODE_STATE_PTP,
 	MODE_STATE_GET_VALUE,
 	MODE_STATE_PROBE_DEV,
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-	MODE_STATE_MUL,
-#endif
 	MODE_STATE_MIDI,
 };
 
@@ -351,9 +333,6 @@ enum check_mode_state {
 	ACK_STATUS_CGO = SUB_ACK_STATUS_CGO,
 	ACK_STATUS_TET = SUB_ACK_STATUS_TET,
 	ACK_STATUS_PTP = SUB_ACK_STATUS_PTP,
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-	ACK_STATUS_MUL = SUB_ACK_STATUS_MUL,
-#endif
 	ACK_STATUS_MIDI= SUB_ACK_STATUS_MIDI,
 	ACK_STATUS_ERR,
 };
@@ -2216,12 +2195,6 @@ static int do_scsi_command(struct fsg_common *common)
 			case TYPE_MOD_CHG2_TO_PTP:
 				common->mode_state = MODE_STATE_PTP;
 				break;
-#if defined(CONFIG_LGE_USB_GADGET_AUTORUN_VZW) && defined(CONFIG_LGE_USB_GADGET_MULTI_CONFIG)
-			case TYPE_MOD_CHG_TO_MUL:
-			case TYPE_MOD_CHG2_TO_MUL:
-				common->mode_state = MODE_STATE_MUL;
-				break;
-#endif
 			case TYPE_MOD_CHG_TO_MIDI:
 			case TYPE_MOD_CHG2_TO_MIDI:
 				common->mode_state = MODE_STATE_MIDI;
