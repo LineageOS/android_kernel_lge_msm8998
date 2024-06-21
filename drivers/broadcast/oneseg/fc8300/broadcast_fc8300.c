@@ -204,7 +204,7 @@ int fc8300_power_on(void)
     return rc;
 }
 
-int fc8300_is_power_on()
+int fc8300_is_power_on(void)
 {
     return (int)IsdbCtrlInfo.pwr_state;
 }
