@@ -45,7 +45,7 @@
 			reg = <0xC176000 0x600>;
             
 			/* [Fixed] Interrupt resource names referenced in interrupts.
-				"spi_irq"     : QUP-core interrupt
+				"spi_irq"     : QUP-core interrupt */
 			interrupt-names = "qup_irq";
             
 			/* [Modified] Replace the interrupt filed. (ref. AP datasheet)
