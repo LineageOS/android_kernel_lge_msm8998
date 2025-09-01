@@ -16,6 +16,24 @@
       "message": "Why omit a legit fix",
       "revId": "c022ed57679b432bff277eaca0a2366a72218925",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "60c3256e_61bf798b",
+        "filename": "drivers/staging/qcacld-3.0/core/mac/src/sys/legacy/src/utils/src/dot11f.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 31496
+      },
+      "writtenOn": "2025-09-01T22:15:28Z",
+      "side": 1,
+      "message": "qcacld in this kernel deviates from common qcom because I needed the Q qcacld or WiFi didn\u0027t work at all. Should I be taking from it anyway, because I assumed I shouldn\u0027t try to merge the two together?",
+      "parentUuid": "ad017820_950b278f",
+      "revId": "c022ed57679b432bff277eaca0a2366a72218925",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
