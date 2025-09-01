@@ -34,6 +34,24 @@
       "parentUuid": "ad017820_950b278f",
       "revId": "c022ed57679b432bff277eaca0a2366a72218925",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "92ff26fe_37386c79",
+        "filename": "drivers/staging/qcacld-3.0/core/mac/src/sys/legacy/src/utils/src/dot11f.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-09-01T22:20:54Z",
+      "side": 1,
+      "message": "Well this is a security fix, which you should be applying in general even if you use a differenct qcacld driver",
+      "parentUuid": "60c3256e_61bf798b",
+      "revId": "c022ed57679b432bff277eaca0a2366a72218925",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
