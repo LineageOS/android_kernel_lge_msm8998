@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ad017820_950b278f",
+        "filename": "drivers/staging/qcacld-3.0/core/mac/src/sys/legacy/src/utils/src/dot11f.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-09-01T22:11:56Z",
+      "side": 1,
+      "message": "Why omit a legit fix",
+      "revId": "c022ed57679b432bff277eaca0a2366a72218925",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
