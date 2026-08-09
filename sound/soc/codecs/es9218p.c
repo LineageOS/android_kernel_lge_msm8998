@@ -1005,19 +1005,12 @@ static ssize_t set_forced_ess_filter(struct device *dev,
     int input_filter;
     sscanf(buf, "%d", &input_filter);
 
-    if ( es9218_power_state < ESS_PS_HIFI ) {
-        pr_err("%s() : invalid state = %s\n", __func__, power_state[es9218_power_state]);
-        return -EINVAL;
-    }
-
     if (input_filter < 0 || input_filter > 11) {
         pr_err("%s() : Invalid filter = %d return \n", __func__, input_filter);
         return -EINVAL;
     }
 
     g_sabre_cf_num = input_filter;
-    
-    es9218_sabre_cfg_custom_filter(&es9218_sabre_custom_ft[g_sabre_cf_num]);
 
     // Logic taken from `mute_work_function` above
     if(g_sabre_cf_num == SHORT_FILTER)
@@ -1027,6 +1020,18 @@ static ssize_t set_forced_ess_filter(struct device *dev,
     else
         g_volume = 2;
 
+    /*
+     * The codec can only be programmed in HiFi state. Otherwise keep the
+     * cached values: es9218p_sabre_bypass2hifi() configures the digital
+     * filter and the master trim from g_sabre_cf_num/g_volume on the
+     * transition into HiFi, just like it does for the AVC volume.
+     */
+    if (es9218_power_state < ESS_PS_HIFI) {
+        pr_info("%s() : deferred, state = %s\n", __func__, power_state[es9218_power_state]);
+        return count;
+    }
+
+    es9218_sabre_cfg_custom_filter(&es9218_sabre_custom_ft[g_sabre_cf_num]);
     es9218_master_trim(g_es9218_priv->i2c_client, g_volume);
 
     return count;
