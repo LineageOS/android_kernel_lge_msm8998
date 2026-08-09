@@ -1010,7 +1010,7 @@ static ssize_t set_forced_ess_filter(struct device *dev,
         return -EINVAL;
     }
 
-    if (input_filter > 11) {
+    if (input_filter < 0 || input_filter > 11) {
         pr_err("%s() : Invalid filter = %d return \n", __func__, input_filter);
         return -EINVAL;
     }
